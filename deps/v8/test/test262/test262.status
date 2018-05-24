@@ -84,40 +84,32 @@
   'language/expressions/prefix-increment/S11.4.4_A5_*': [FAIL],
   'language/statements/variable/binding-resolution': [FAIL],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=6216
-  'built-ins/TypedArrays/buffer-arg-byteoffset-to-number-detachbuffer': [FAIL],
-  'built-ins/TypedArrays/buffer-arg-length-to-number-detachbuffer': [FAIL],
-  'built-ins/TypedArrays/buffer-arg-detachedbuffer': [FAIL],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=4895
   'built-ins/TypedArrays/internals/DefineOwnProperty/detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/DefineOwnProperty/detached-buffer-realm': [FAIL],
+  'built-ins/TypedArrays/internals/DefineOwnProperty/tonumber-value-detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/Get/detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/Get/detached-buffer-realm': [FAIL],
+  'built-ins/TypedArrays/internals/Get/infinity-detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/GetOwnProperty/detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/GetOwnProperty/detached-buffer-realm': [FAIL],
+  'built-ins/TypedArrays/internals/GetOwnProperty/enumerate-detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/HasProperty/detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/HasProperty/detached-buffer-realm': [FAIL],
+  'built-ins/TypedArrays/internals/HasProperty/infinity-with-detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/Set/detached-buffer': [FAIL],
   'built-ins/TypedArrays/internals/Set/detached-buffer-realm': [FAIL],
+  'built-ins/TypedArrays/internals/Set/tonumber-value-detached-buffer': [FAIL],
+  'built-ins/TypedArrays/typedarray-arg-detached-when-species-retrieved-different-type': [FAIL],
+  'built-ins/TypedArrays/typedarray-arg-detached-when-species-retrieved-same-type': [FAIL],
   # Some TypedArray methods throw due to the same bug, from Get
   'built-ins/TypedArray/prototype/every/callbackfn-detachbuffer': [FAIL],
-  'built-ins/TypedArray/prototype/filter/callbackfn-detachbuffer': [FAIL],
   'built-ins/TypedArray/prototype/find/predicate-may-detach-buffer': [FAIL],
   'built-ins/TypedArray/prototype/findIndex/predicate-may-detach-buffer': [FAIL],
   'built-ins/TypedArray/prototype/forEach/callbackfn-detachbuffer': [FAIL],
   'built-ins/TypedArray/prototype/map/callbackfn-detachbuffer': [FAIL],
   'built-ins/TypedArray/prototype/reduce/callbackfn-detachbuffer': [FAIL],
   'built-ins/TypedArray/prototype/reduceRight/callbackfn-detachbuffer': [FAIL],
-  'built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-get-src-value-throws': [FAIL],
-  'built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-tointeger-offset-throws': [FAIL],
-  'built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-throws': [FAIL],
-  'built-ins/TypedArray/prototype/set/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws': [FAIL],
-  'built-ins/TypedArray/prototype/set/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws': [FAIL],
-  'built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-other-targettype': [FAIL],
-  'built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-same-targettype': [FAIL],
-  'built-ins/TypedArray/prototype/slice/detached-buffer-get-ctor': [FAIL],
-  'built-ins/TypedArray/prototype/slice/detached-buffer-speciesctor-get-species-custom-ctor-throws': [FAIL],
   'built-ins/TypedArray/prototype/some/callbackfn-detachbuffer': [FAIL],
   'built-ins/TypedArray/prototype/sort/detached-buffer-comparefn': [FAIL],
   # DataView functions should also throw on detached buffers
@@ -158,42 +150,13 @@
   'built-ins/DataView/prototype/setUint8/detached-buffer': [FAIL],
   'built-ins/DataView/prototype/setUint8/detached-buffer-before-outofrange-byteoffset': [FAIL],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=4648
-  'built-ins/TypedArray/prototype/copyWithin/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/every/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/fill/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/filter/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/find/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/findIndex/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/forEach/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/includes/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/indexOf/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/join/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/lastIndexOf/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/map/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/reverse/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/slice/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/some/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/sort/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/toLocaleString/detached-buffer': [FAIL],
-  'built-ins/TypedArray/prototype/toString/detached-buffer': [FAIL],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=4034
-  'built-ins/ThrowTypeError/unique-per-realm-function-proto': [FAIL],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=4231
   'language/eval-code/direct/var-env-lower-lex-catch-non-strict': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=4951
-  'language/expressions/assignment/dstr-array-elem-iter-rtrn-close': [FAIL],
   'language/expressions/assignment/dstr-array-elem-iter-rtrn-close-err': [FAIL],
-  'language/expressions/assignment/dstr-array-elem-iter-rtrn-close-null': [FAIL],
   'language/expressions/assignment/dstr-array-elem-iter-thrw-close': [FAIL],
   'language/expressions/assignment/dstr-array-elem-iter-thrw-close-err': [FAIL],
-  'language/expressions/assignment/dstr-array-elem-trlg-iter-list-rtrn-close': [FAIL],
-  'language/expressions/assignment/dstr-array-elem-trlg-iter-list-rtrn-close-err': [FAIL],
-  'language/expressions/assignment/dstr-array-elem-trlg-iter-list-rtrn-close-null': [FAIL],
   'language/expressions/assignment/dstr-array-elem-trlg-iter-list-thrw-close': [FAIL],
   'language/expressions/assignment/dstr-array-elem-trlg-iter-list-thrw-close-err': [FAIL],
   'language/expressions/assignment/dstr-array-elem-trlg-iter-rest-rtrn-close': [FAIL],
@@ -207,14 +170,9 @@
   'language/expressions/assignment/dstr-array-rest-iter-thrw-close': [FAIL],
   'language/expressions/assignment/dstr-array-rest-iter-thrw-close-err': [FAIL],
   'language/expressions/assignment/dstr-array-rest-lref-err': [FAIL],
-  'language/statements/for-of/dstr-array-elem-iter-rtrn-close': [FAIL],
   'language/statements/for-of/dstr-array-elem-iter-rtrn-close-err': [FAIL],
-  'language/statements/for-of/dstr-array-elem-iter-rtrn-close-null': [FAIL],
   'language/statements/for-of/dstr-array-elem-iter-thrw-close': [FAIL],
   'language/statements/for-of/dstr-array-elem-iter-thrw-close-err': [FAIL],
-  'language/statements/for-of/dstr-array-elem-trlg-iter-list-rtrn-close': [FAIL],
-  'language/statements/for-of/dstr-array-elem-trlg-iter-list-rtrn-close-err': [FAIL],
-  'language/statements/for-of/dstr-array-elem-trlg-iter-list-rtrn-close-null': [FAIL],
   'language/statements/for-of/dstr-array-elem-trlg-iter-list-thrw-close': [FAIL],
   'language/statements/for-of/dstr-array-elem-trlg-iter-list-thrw-close-err': [FAIL],
   'language/statements/for-of/dstr-array-elem-trlg-iter-rest-rtrn-close': [FAIL],
@@ -228,9 +186,36 @@
   'language/statements/for-of/dstr-array-rest-iter-thrw-close': [FAIL],
   'language/statements/for-of/dstr-array-rest-iter-thrw-close-err': [FAIL],
   'language/statements/for-of/dstr-array-rest-lref-err': [FAIL],
+  'language/expressions/assignment/destructuring/iterator-destructuring-property-reference-target-evaluation-order': [FAIL],
+  'language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=896
+  'built-ins/RegExp/property-escapes/binary-properties-with-value': [FAIL],
+  'built-ins/RegExp/property-escapes/character-class': [FAIL],
+  'built-ins/RegExp/property-escapes/grammar-extensions': [FAIL],
+  'built-ins/RegExp/property-escapes/loose-matching': [FAIL],
+  'built-ins/RegExp/property-escapes/non-binary-properties-without-value': [FAIL],
+  'built-ins/RegExp/property-escapes/non-existent-properties': [FAIL],
+  'built-ins/RegExp/property-escapes/non-existent-property-values': [FAIL],
+  'built-ins/RegExp/property-escapes/unsupported-binary-properties': [FAIL],
+  'built-ins/RegExp/property-escapes/unsupported-properties': [FAIL],
   'language/literals/regexp/early-err-pattern': [FAIL],
+  'language/literals/regexp/invalid-braced-quantifier-exact': [FAIL],
+  'language/literals/regexp/invalid-braced-quantifier-lower': [FAIL],
+  'language/literals/regexp/invalid-braced-quantifier-range': [FAIL],
+  'language/literals/regexp/u-dec-esc': [FAIL],
+  'language/literals/regexp/u-invalid-class-escape': [FAIL],
+  'language/literals/regexp/u-invalid-extended-pattern-char': [FAIL],
+  'language/literals/regexp/u-invalid-identity-escape': [FAIL],
+  'language/literals/regexp/u-invalid-legacy-octal-escape': [FAIL],
+  'language/literals/regexp/u-invalid-non-empty-class-ranges': [FAIL],
+  'language/literals/regexp/u-invalid-non-empty-class-ranges-no-dash-a': [FAIL],
+  'language/literals/regexp/u-invalid-non-empty-class-ranges-no-dash-ab': [FAIL],
+  'language/literals/regexp/u-invalid-non-empty-class-ranges-no-dash-b': [FAIL],
+  'language/literals/regexp/u-invalid-oob-decimal-escape': [FAIL],
+  'language/literals/regexp/u-invalid-quantifiable-assertion': [FAIL],
+  'language/literals/regexp/u-unicode-esc-bounds': [FAIL],
+  'language/literals/regexp/u-unicode-esc-non-hex': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=4628
   'language/eval-code/direct/non-definable-function-with-function': [FAIL],
@@ -240,52 +225,14 @@
   'language/global-code/script-decl-func-err-non-configurable': [FAIL],
   'language/global-code/script-decl-var-collision': [FAIL],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=4124
-  'built-ins/Simd/*': [SKIP],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=4958
-  'built-ins/Function/prototype/toString/AsyncFunction': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/async-function-declaration': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/async-function-expression': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/async-method': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/Function': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/GeneratorFunction': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/function-declaration': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/function-declaration-non-simple-parameter-list': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/function-expression': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/generator-function-declaration': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/generator-function-expression': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/generator-method': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/getter-class': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/getter-class-static': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/getter-object': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/line-terminator-normalisation-CR': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/line-terminator-normalisation-CR-LF': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/line-terminator-normalisation-LF': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/method-class': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/method-class-static': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/method-computed-property-name': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/method-object': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/setter-class': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/setter-class-static': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/setter-object': ['--harmony-function-tostring'],
-  'built-ins/Function/prototype/toString/unicode': ['--harmony-function-tostring'],
+  'built-ins/Function/prototype/toString/*': ['--harmony-function-tostring'],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=5116
   'built-ins/Object/internals/DefineOwnProperty/nan-equivalence': [PASS, FAIL],
   'built-ins/TypedArray/prototype/fill/fill-values-conversion-operations-consistent-nan': [PASS, FAIL],
   'built-ins/TypedArrays/internals/DefineOwnProperty/conversion-operation-consistent-nan': [PASS, FAIL],
   'built-ins/TypedArrays/internals/Set/conversion-operation-consistent-nan': [PASS, FAIL],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=5070
-  'annexB/built-ins/Object/prototype/__defineGetter__/define-non-configurable': [FAIL],
-  'annexB/built-ins/Object/prototype/__defineGetter__/define-non-extensible': [FAIL],
-  'annexB/built-ins/Object/prototype/__defineGetter__/this-non-obj': [FAIL],
-  'annexB/built-ins/Object/prototype/__defineSetter__/define-non-configurable': [FAIL],
-  'annexB/built-ins/Object/prototype/__defineSetter__/define-non-extensible': [FAIL],
-  'annexB/built-ins/Object/prototype/__defineSetter__/this-non-obj': [FAIL],
-  'annexB/built-ins/Object/prototype/__lookupGetter__/this-non-obj': [FAIL],
-  'annexB/built-ins/Object/prototype/__lookupSetter__/this-non-obj': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=4451
   # https://github.com/tc39/ecma262/issues/753
@@ -320,44 +267,51 @@
   'annexB/built-ins/Date/prototype/setYear/year-number-relative': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=4698
-  'language/expressions/call/tco-call-args': ['--harmony-tailcalls'],
-  'language/expressions/call/tco-member-args': ['--harmony-tailcalls'],
-  'language/expressions/comma/tco-final': ['--harmony-tailcalls'],
-  'language/expressions/conditional/tco-cond': ['--harmony-tailcalls'],
-  'language/expressions/conditional/tco-pos': ['--harmony-tailcalls'],
-  'language/expressions/logical-and/tco-right': ['--harmony-tailcalls'],
-  'language/expressions/logical-or/tco-right': ['--harmony-tailcalls'],
-  'language/expressions/tagged-template/tco-call': ['--harmony-tailcalls'],
-  'language/expressions/tagged-template/tco-member': ['--harmony-tailcalls'],
-  'language/expressions/tco-pos': ['--harmony-tailcalls'],
-  'language/statements/block/tco-stmt': ['--harmony-tailcalls'],
-  'language/statements/block/tco-stmt-list': ['--harmony-tailcalls'],
-  'language/statements/do-while/tco-body': ['--harmony-tailcalls'],
-  'language/statements/for/tco-const-body': ['--harmony-tailcalls'],
-  'language/statements/for/tco-let-body': ['--harmony-tailcalls'],
-  'language/statements/for/tco-lhs-body': ['--harmony-tailcalls'],
-  'language/statements/for/tco-var-body': ['--harmony-tailcalls'],
-  'language/statements/if/tco-else-body': ['--harmony-tailcalls'],
-  'language/statements/if/tco-if-body': ['--harmony-tailcalls'],
-  'language/statements/labeled/tco': ['--harmony-tailcalls'],
-  'language/statements/return/tco': ['--harmony-tailcalls'],
-  'language/statements/switch/tco-case-body': ['--harmony-tailcalls'],
-  'language/statements/switch/tco-case-body-dflt': ['--harmony-tailcalls'],
-  'language/statements/switch/tco-dftl-body': ['--harmony-tailcalls'],
-  'language/statements/try/tco-catch': ['--harmony-tailcalls'],
-  'language/statements/try/tco-catch-finally': ['--harmony-tailcalls'],
-  'language/statements/try/tco-finally': ['--harmony-tailcalls'],
-  'language/statements/while/tco-body': ['--harmony-tailcalls'],
+  'language/expressions/call/tco-call-args': [SKIP],
+  'language/expressions/call/tco-cross-realm-class-construct': [SKIP],
+  'language/expressions/call/tco-cross-realm-class-derived-construct': [SKIP],
+  'language/expressions/call/tco-cross-realm-fun-call': [SKIP],
+  'language/expressions/call/tco-cross-realm-fun-construct': [SKIP],
+  'language/expressions/call/tco-member-args': [SKIP],
+  'language/expressions/call/tco-non-eval-function': [SKIP],
+  'language/expressions/call/tco-non-eval-function-dynamic': [SKIP],
+  'language/expressions/call/tco-non-eval-global': [SKIP],
+  'language/expressions/call/tco-non-eval-with': [SKIP],
+  'language/expressions/comma/tco-final': [SKIP],
+  'language/expressions/conditional/tco-cond': [SKIP],
+  'language/expressions/conditional/tco-pos': [SKIP],
+  'language/expressions/logical-and/tco-right': [SKIP],
+  'language/expressions/logical-or/tco-right': [SKIP],
+  'language/expressions/tagged-template/tco-call': [SKIP],
+  'language/expressions/tagged-template/tco-member': [SKIP],
+  'language/expressions/tco-pos': [SKIP],
+  'language/statements/block/tco-stmt': [SKIP],
+  'language/statements/block/tco-stmt-list': [SKIP],
+  'language/statements/do-while/tco-body': [SKIP],
+  'language/statements/for/tco-const-body': [SKIP],
+  'language/statements/for/tco-let-body': [SKIP],
+  'language/statements/for/tco-lhs-body': [SKIP],
+  'language/statements/for/tco-var-body': [SKIP],
+  'language/statements/if/tco-else-body': [SKIP],
+  'language/statements/if/tco-if-body': [SKIP],
+  'language/statements/labeled/tco': [SKIP],
+  'language/statements/return/tco': [SKIP],
+  'language/statements/switch/tco-case-body': [SKIP],
+  'language/statements/switch/tco-case-body-dflt': [SKIP],
+  'language/statements/switch/tco-dftl-body': [SKIP],
+  'language/statements/try/tco-catch': [SKIP],
+  'language/statements/try/tco-catch-finally': [SKIP],
+  'language/statements/try/tco-finally': [SKIP],
+  'language/statements/while/tco-body': [SKIP],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=5064
-  'language/expressions/arrow-function/params-dflt-duplicates': [FAIL],
+  'language/expressions/arrow-function/dflt-params-duplicates': [FAIL],
+  'language/expressions/async-arrow-function/dflt-params-duplicates': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=5244
-  'intl402/NumberFormat/prototype/formatToParts/*': [SKIP],
+  'intl402/NumberFormat/prototype/formatToParts/*': ['--harmony-number-format-to-parts'],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=5327
-  'built-ins/TypedArray/prototype/set/array-arg-negative-integer-offset-throws': [FAIL],
-  'built-ins/TypedArray/prototype/set/typedarray-arg-negative-integer-offset-throws': [FAIL],
   'built-ins/TypedArrays/internals/Set/key-is-minus-zero': [FAIL],
   'built-ins/TypedArrays/internals/Set/key-is-not-integer': [FAIL],
   'built-ins/TypedArrays/internals/Set/key-is-out-of-bounds': [FAIL],
@@ -376,9 +330,6 @@
   'annexB/language/eval-code/direct/func-switch-case-eval-func-no-skip-try': [FAIL],
   'annexB/language/eval-code/direct/func-switch-dflt-eval-func-no-skip-try': [FAIL],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=5546
-  'language/expressions/tagged-template/invalid-escape-sequences': ['--harmony-template-escapes'],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=5537
   'built-ins/global/*': [SKIP],
 
@@ -390,92 +341,8 @@
   'language/expressions/object/method-definition/name-param-redecl': [FAIL],
   'language/statements/async-function/early-errors-declaration-formals-body-duplicate': [FAIL],
 
-  # Module-related tests
-  # v8:5485
-  'language/module-code/comment-multi-line-html*': [FAIL],
-  'language/module-code/comment-single-line-html*': [FAIL],
-  # v8:5487
-  'language/module-code/namespace/internals/get-own-property-str-found-uninit': [FAIL],
-  # https://github.com/tc39/ecma262/pull/858
-  'language/module-code/namespace/internals/set': [FAIL],
-  'language/module-code/namespace/internals/define-own-property': [FAIL],
-
-  # https://code.google.com/p/v8/issues/detail?id=4476
-  'built-ins/String/prototype/toLowerCase/special_casing_conditional': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toLowerCase/supplementary_plane': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toUpperCase/supplementary_plane': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toLocaleLowerCase/Final_Sigma_U180E': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toLowerCase/Final_Sigma_U180E': ['--icu-case-mapping'],
-
-  # https://code.google.com/p/v8/issues/detail?id=4477
-  'built-ins/String/prototype/toLocaleUpperCase/supplementary_plane': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toLocaleLowerCase/supplementary_plane': ['--icu-case-mapping'],
-  'built-ins/String/prototype/toLocaleLowerCase/special_casing_conditional': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleLowerCase/special_casing_Azeri': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleLowerCase/special_casing_Lithuanian': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleLowerCase/special_casing_Turkish': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleUpperCase/special_casing_Azeri': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian': ['--icu-case-mapping'],
-  'intl402/String/prototype/toLocaleUpperCase/special_casing_Turkish': ['--icu-case-mapping'],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=5601
-  'intl402/PluralRules/*': [SKIP],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=5855
-  'language/expressions/async-generators/*': ['--harmony-async-iteration'],
-  'language/statements/async-generator/*': ['--harmony-async-iteration'],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=6226
-  'language/expressions/async-generator/named-yield-star-async-next': [FAIL],
-  'language/expressions/async-generator/named-yield-star-async-return': [FAIL],
-  'language/expressions/async-generator/named-yield-star-async-throw': [FAIL],
-  'language/expressions/async-generator/yield-star-async-next': [FAIL],
-  'language/expressions/async-generator/yield-star-async-return': [FAIL],
-  'language/expressions/async-generator/yield-star-async-throw': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-async-next': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-async-return': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-async-throw': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-async-next': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-async-return': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-async-throw': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-async-next': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-async-return': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-async-throw': [FAIL],
-  'language/statements/async-generator/yield-star-async-next': [FAIL],
-  'language/statements/async-generator/yield-star-async-return': [FAIL],
-  'language/statements/async-generator/yield-star-async-throw': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-async-next': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-async-return': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-async-throw': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-async-next': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-async-return': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-async-throw': [FAIL],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=6242
-  'language/expressions/async-generator/named-yield-star-sync-next': [FAIL],
-  'language/expressions/async-generator/named-yield-star-sync-return': [FAIL],
-  'language/expressions/async-generator/named-yield-star-sync-throw': [FAIL],
-  'language/expressions/async-generator/yield-star-sync-next': [FAIL],
-  'language/expressions/async-generator/yield-star-sync-return': [FAIL],
-  'language/expressions/async-generator/yield-star-sync-throw': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-sync-next': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-sync-return': [FAIL],
-  'language/expressions/class/async-gen-method-static-yield-star-sync-throw': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-sync-next': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-sync-return': [FAIL],
-  'language/expressions/class/async-gen-method-yield-star-sync-throw': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-sync-next': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-sync-return': [FAIL],
-  'language/expressions/object/method-definition/async-gen-yield-star-sync-throw': [FAIL],
-  'language/statements/async-generator/yield-star-sync-next': [FAIL],
-  'language/statements/async-generator/yield-star-sync-return': [FAIL],
-  'language/statements/async-generator/yield-star-sync-throw': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-sync-next': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-sync-return': [FAIL],
-  'language/statements/class/async-gen-method-static-yield-star-sync-throw': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-sync-next': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-sync-return': [FAIL],
-  'language/statements/class/async-gen-method-yield-star-sync-throw': [FAIL],
+  'intl402/PluralRules/*': ['--harmony-plural-rules'],
 
   # SharedArrayBuffer tests that require flags
   'built-ins/SharedArrayBuffer/*': ['--harmony-sharedarraybuffer'],
@@ -552,25 +419,87 @@
   'built-ins/TypedArrays/buffer-arg-use-default-proto-if-custom-proto-is-not-object-sab': ['--harmony-sharedarraybuffer'],
   'built-ins/TypedArrays/internals/Get/indexed-value-sab': ['--harmony-sharedarraybuffer'],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=5961
-  'built-ins/Atomics/add/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/and/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/compareExchange/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/exchange/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/load/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/or/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/store/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/sub/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/wake/good-views': ['--harmony-sharedarraybuffer', FAIL],
-  'built-ins/Atomics/xor/good-views': ['--harmony-sharedarraybuffer', FAIL],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=6045
-  'intl402/NumberFormat/prototype/format/11.3.2_TRF': [FAIL],
-  'intl402/NumberFormat/prototype/format/11.3.2_TRP': [FAIL],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=6049
   'built-ins/Object/internals/DefineOwnProperty/consistent-value-function-caller': [FAIL_SLOPPY],
   'built-ins/Object/internals/DefineOwnProperty/consistent-value-function-arguments': [FAIL_SLOPPY],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=6776
+  'built-ins/Proxy/ownKeys/return-duplicate-entries-throws': [FAIL],
+  'built-ins/Proxy/ownKeys/return-duplicate-symbol-entries-throws': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=6791
+  'built-ins/BigInt/prototype/Symbol.toStringTag': [SKIP],
+  'built-ins/DataView/prototype/getBigInt64/*': [SKIP],
+  'built-ins/DataView/prototype/getBigUint64/*': [SKIP],
+  'built-ins/DataView/prototype/setBigInt64/*': [SKIP],
+  'built-ins/DataView/prototype/setBigUint64/*': [SKIP],
+  'built-ins/TypedArrays/BigInt64Array/*': [SKIP],
+  'built-ins/TypedArrays/BigUint64Array/*': [SKIP],
+  # The current version of test262 still uses parseInt.
+  'built-ins/BigInt/parseInt/*': [SKIP],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7184
+  'annexB/language/expressions/yield/star-iterable-return-emulates-undefined-throws-when-called': [FAIL],
+  'annexB/language/statements/for-await-of/iterator-close-return-emulates-undefined-throws-when-called': [FAIL],
+  'annexB/language/statements/for-of/iterator-close-return-emulates-undefined-throws-when-called': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7186
+  'language/statements/class/fields-indirect-eval-err-contains-arguments': [FAIL],
+  'language/expressions/class/fields-indirect-eval-err-contains-arguments': [FAIL],
+
+  # https://github.com/tc39/test262/pull/1452
+  'built-ins/Object/setPrototypeOf/bigint': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7468
+  'language/statements/class/privatename-not-valid-earlyerr-script-8': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=5690
+  'language/expressions/call/eval-spread': [FAIL],
+  'language/expressions/call/eval-spread-empty-leading': [FAIL],
+  'language/expressions/call/eval-spread-empty-trailing': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7470
+  'language/module-code/namespace/internals/enumerate-binding-uninit': [FAIL],
+  'language/module-code/namespace/internals/object-keys-binding-uninit': [FAIL],
+  'language/module-code/namespace/internals/object-propertyIsEnumerable-binding-uninit': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7471
+  'intl402/DateTimeFormat/prototype/format/time-clip-near-time-boundaries': [FAIL],
+  'intl402/DateTimeFormat/prototype/format/time-clip-to-integer': [FAIL],
+  'intl402/DateTimeFormat/prototype/formatToParts/time-clip-near-time-boundaries': [FAIL],
+  'intl402/DateTimeFormat/prototype/formatToParts/time-clip-to-integer': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7472
+  'intl402/NumberFormat/currency-digits': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7473
+  'intl402/language-tags-canonicalized': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7474
+  'intl402/NumberFormat/prototype/format/format-fraction-digits': [FAIL],
+  'intl402/NumberFormat/prototype/format/format-significant-digits': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7475
+  'built-ins/Date/UTC/non-integer-values': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7480
+  'intl402/Collator/unicode-ext-seq-in-private-tag': [FAIL],
+  'intl402/Collator/unicode-ext-seq-with-attribute': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7481
+  'intl402/NumberFormat/ignore-invalid-unicode-ext-values': [FAIL],
+  'intl402/DateTimeFormat/ignore-invalid-unicode-ext-values': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7482
+  'intl402/DateTimeFormat/prototype/resolvedOptions/resolved-locale-with-hc-unicode': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7483
+  'annexB/built-ins/Function/createdynfn-html-close-comment-params': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=5012
+  'intl402/Intl/getCanonicalLocales/canonicalized-tags': [FAIL],
+  'intl402/Intl/getCanonicalLocales/preferred-grandfathered': [FAIL],
+  'intl402/Intl/getCanonicalLocales/preferred-variant': [FAIL],
 
 ######################## NEEDS INVESTIGATION ###########################
 
@@ -578,40 +507,12 @@
   # to be either marked as bugs with issues filed for them or as deliberate
   # incompatibilities if the test cases turn out to be broken or ambiguous.
   # Some of these are related to v8:4361 in being visible side effects from Intl.
-  'intl402/6.2.3': [FAIL],
-  'intl402/Collator/10.1.2_a': [PASS, FAIL],
-  'intl402/Collator/10.2.3_b': [PASS, FAIL],
-  'intl402/Collator/prototype/10.3_a': [FAIL],
-  'intl402/DateTimeFormat/12.1.2': [PASS, FAIL],
-  'intl402/DateTimeFormat/12.2.3_b': [FAIL],
-  'intl402/DateTimeFormat/prototype/12.3_a': [FAIL],
-  'intl402/Number/prototype/toLocaleString/13.2.1_5': [PASS, FAIL],
-  'intl402/NumberFormat/11.1.1_20_c': [FAIL],
-  'intl402/NumberFormat/11.1.2': [PASS, FAIL],
-  'intl402/NumberFormat/11.2.3_b': [FAIL],
-  'intl402/NumberFormat/prototype/11.3_a': [FAIL],
-  'intl402/String/prototype/localeCompare/13.1.1_7': [PASS, FAIL],
+  'intl402/DateTimeFormat/prototype/resolvedOptions/hourCycle': [FAIL],
 
   ##################### DELIBERATE INCOMPATIBILITIES #####################
 
-  # https://code.google.com/p/v8/issues/detail?id=4693
-  'language/block-scope/syntax/redeclaration-in-block/attempt-to-redeclare-function-declaration-with-function-declaration': [PASS, FAIL_SLOPPY],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=4953
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-ctor': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-ctor-abrupt': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-ctor-inherited': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-ctor-returns-throws': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-abrupt': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-custom-ctor': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-custom-ctor-invocation': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-custom-ctor-returns-another-instance': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-custom-ctor-throws': [FAIL],
-  'built-ins/TypedArray/prototype/subarray/speciesctor-get-species-returns-throws': [FAIL],
-
   # We do not expose Array.prototype.values due to webcompat issues.
-  # Most recent incompatability: https://crbug.com/615873
+  # Most recent incompatibility: https://crbug.com/615873
   # https://code.google.com/p/v8/issues/detail?id=4247
   'built-ins/Array/prototype/Symbol.iterator': [FAIL],
   'built-ins/Array/prototype/values/returns-iterator': [FAIL],
@@ -623,11 +524,39 @@
   'built-ins/Array/prototype/values/iteration-mutable': [FAIL],
   'built-ins/Array/prototype/Symbol.unscopables/value': [FAIL],
 
+  # https://github.com/tc39/ecma262/pull/889
+  'annexB/language/function-code/block-decl-func-skip-arguments': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=6538
+  'built-ins/Array/prototype/unshift/throws-if-integer-limit-exceeded': [SKIP],
+  'built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy': [FAIL],
+  'built-ins/Array/prototype/splice/create-species-length-exceeding-integer-limit': [FAIL],
+  'built-ins/Array/prototype/splice/throws-if-integer-limit-exceeded': [SKIP],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=6541
+  'language/export/escaped-as-export-specifier': [FAIL],
+  'language/export/escaped-from': [FAIL],
+  'language/expressions/object/method-definition/escaped-get': [FAIL],
+  'language/expressions/object/method-definition/escaped-set': [FAIL],
+  'language/import/escaped-as-import-specifier': [FAIL],
+  'language/import/escaped-as-namespace-import': [FAIL],
+  'language/import/escaped-from': [FAIL],
+  'language/statements/for-await-of/escaped-of': [FAIL],
+  'language/statements/for-of/escaped-of': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=6543
+  'language/statements/labeled/value-await-non-module-escaped': [FAIL],
+  'language/statements/labeled/value-yield-non-strict-escaped': [FAIL],
+
   ############################ INVALID TESTS #############################
 
   # Test makes unjustified assumptions about the number of calls to SortCompare.
   # Test262 Bug: https://bugs.ecmascript.org/show_bug.cgi?id=596
   'built-ins/Array/prototype/sort/bug_596_1': [PASS, FAIL_OK],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=7418
+  'language/line-terminators/S7.3_A2.3': [FAIL],
+  'language/line-terminators/S7.3_A2.4': [FAIL],
 
   # https://github.com/tc39/test262/pull/688#pullrequestreview-14025354
   'built-ins/Function/internals/Construct/derived-this-uninitialized-realm': [FAIL],
@@ -641,10 +570,14 @@
   'built-ins/Date/prototype/setFullYear/new-value-time-clip': [PASS, FAIL],
   'built-ins/Date/prototype/setMonth/new-value-time-clip': [PASS, FAIL],
 
-  # Symbol.toStringTag on namespace objects was made non-configurable, tests
-  # need to be updated.
-  'language/module-code/namespace/Symbol.toStringTag': [SKIP],
-  'language/module-code/namespace/internals/delete-non-exported': [SKIP],
+  # Test against internals of harness; we plug in differently
+  'harness/detachArrayBuffer': [SKIP],
+  'harness/detachArrayBuffer-host-detachArrayBuffer': [SKIP],
+
+  # https://github.com/tc39/test262/pull/1371
+  'language/expressions/bitwise-and/bigint-non-primitive': ['--harmony-bigint'],
+  'language/expressions/bitwise-or/bigint-non-primitive': ['--harmony-bigint'],
+  'language/expressions/bitwise-xor/bigint-non-primitive': ['--harmony-bigint'],
 
   ############################ SKIPPED TESTS #############################
 
@@ -659,7 +592,6 @@
   'built-ins/decodeURIComponent/S15.1.3.2_A1.12_T1': [SKIP],
   'built-ins/decodeURIComponent/S15.1.3.2_A2.5_T1': [SKIP],
   'built-ins/RegExp/S15.10.2.12_A3_T1': [SKIP],
-  'intl402/9.2.6_4_b': [SKIP],
   'language/literals/regexp/S7.8.5_A1.1_T2': [SKIP],
   'language/literals/regexp/S7.8.5_A1.4_T2': [SKIP],
   'language/literals/regexp/S7.8.5_A2.1_T2': [SKIP],
@@ -704,6 +636,10 @@
   'intl402/String/prototype/toLocaleUpperCase/special_casing_Azeri': [FAIL],
   'intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian': [FAIL],
   'intl402/String/prototype/toLocaleUpperCase/special_casing_Turkish': [FAIL],
+
+  # Unicode property escapes unavailable without i18n
+  'built-ins/RegExp/property-escapes/*': [SKIP],
+  'built-ins/RegExp/named-groups/unicode-property-names': [SKIP],
 }],  # no_i18n == True
 
 ['arch == arm or arch == mipsel or arch == mips or arch == arm64 or arch == mips64 or arch == mips64el', {
@@ -712,7 +648,7 @@
   # compilation of parenthesized function literals. Needs investigation.
   'language/statements/function/S13.2.1_A1_T1': [SKIP],
 
-  # BUG(3251225): Tests that timeout with --nocrankshaft.
+  # BUG(3251225): Tests that timeout with --noopt.
   'built-ins/decodeURI/S15.1.3.1_A2.4_T1': [SKIP],
   'built-ins/decodeURI/S15.1.3.1_A2.5_T1': [SKIP],
   'built-ins/decodeURIComponent/S15.1.3.2_A2.4_T1': [SKIP],
@@ -721,16 +657,19 @@
   'built-ins/encodeURIComponent/S15.1.3.4_A2.3_T1': [SKIP],
 }],  # 'arch == arm or arch == mipsel or arch == mips or arch == arm64'
 
+['byteorder == big', {
+  # Test failures on big endian platforms due to the way the tests
+  # are written
+
+  # https://github.com/tc39/test262/issues/757
+  'built-ins/TypedArray/prototype/set/typedarray-arg-set-values-same-buffer-other-type': [SKIP],
+}],
+
 ['asan == True', {
   # BUG(v8:4653): Test262 tests which rely on quit() are not compatible with
   # asan's --omit-quit flag.
   'built-ins/Promise/prototype/then/deferred-is-resolved-value': [SKIP],
 }],  # asan == True
-
-['variant != default and asan', {
-  # BUG(chromium:710428).
-  '*': [SKIP],
-}],  # variant != default and asan
 
 ['asan == True or msan == True or tsan == True', {
   # https://bugs.chromium.org/p/v8/issues/detail?id=4639
@@ -744,5 +683,10 @@
 ['variant == wasm_traps', {
   '*': [SKIP],
 }],  # variant == wasm_traps
+
+['variant != default or arch == arm or arch == arm64 or arch == mipsel or arch == mips or arch == mips64 or arch == mips64el', {
+  # These tests take a long time to run
+  'built-ins/RegExp/property-escapes/generated/*': [SKIP],
+}],  # variant != default or arch == arm or arch == arm64
 
 ]

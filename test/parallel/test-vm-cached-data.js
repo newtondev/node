@@ -1,9 +1,8 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const vm = require('vm');
 const spawnSync = require('child_process').spawnSync;
-const Buffer = require('buffer').Buffer;
 
 function getSource(tag) {
   return `(function ${tag}() { return '${tag}'; })`;
@@ -85,8 +84,12 @@ function testRejectSlice() {
 testRejectSlice();
 
 // It should throw on non-Buffer cachedData
-assert.throws(() => {
+common.expectsError(() => {
   new vm.Script('function abc() {}', {
     cachedData: 'ohai'
   });
-}, /^TypeError: options\.cachedData must be a Buffer instance$/);
+}, {
+  code: 'ERR_INVALID_ARG_TYPE',
+  type: TypeError,
+  message: /must be one of type Buffer or Uint8Array/
+});

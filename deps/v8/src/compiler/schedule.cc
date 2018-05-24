@@ -4,8 +4,8 @@
 
 #include "src/compiler/schedule.h"
 
-#include "src/compiler/node.h"
 #include "src/compiler/node-properties.h"
+#include "src/compiler/node.h"
 #include "src/ostreams.h"
 
 namespace v8 {
@@ -35,8 +35,8 @@ BasicBlock::BasicBlock(Zone* zone, Id id)
 
 bool BasicBlock::LoopContains(BasicBlock* block) const {
   // RPO numbers must be initialized.
-  DCHECK(rpo_number_ >= 0);
-  DCHECK(block->rpo_number_ >= 0);
+  DCHECK_LE(0, rpo_number_);
+  DCHECK_LE(0, block->rpo_number_);
   if (loop_end_ == nullptr) return false;  // This is not a loop.
   return block->rpo_number_ >= rpo_number_ &&
          block->rpo_number_ < loop_end_->rpo_number_;
@@ -96,6 +96,8 @@ BasicBlock* BasicBlock::GetCommonDominator(BasicBlock* b1, BasicBlock* b2) {
   return b1;
 }
 
+void BasicBlock::Print() { OFStream(stdout) << this; }
+
 std::ostream& operator<<(std::ostream& os, const BasicBlock& block) {
   os << "B" << block.id();
 #if DEBUG
@@ -137,7 +139,6 @@ std::ostream& operator<<(std::ostream& os, const BasicBlock::Control& c) {
       return os << "throw";
   }
   UNREACHABLE();
-  return os;
 }
 
 
@@ -197,7 +198,7 @@ void Schedule::PlanNode(BasicBlock* block, Node* node) {
     os << "Planning #" << node->id() << ":" << node->op()->mnemonic()
        << " for future add to B" << block->id() << "\n";
   }
-  DCHECK(this->block(node) == nullptr);
+  DCHECK_NULL(this->block(node));
   SetBlockForNode(block, node);
 }
 
@@ -229,6 +230,7 @@ bool IsPotentiallyThrowingCall(IrOpcode::Value opcode) {
     JS_OP_LIST(BUILD_BLOCK_JS_CASE)
 #undef BUILD_BLOCK_JS_CASE
     case IrOpcode::kCall:
+    case IrOpcode::kCallWithCallerSavedRegisters:
       return true;
     default:
       return false;
@@ -415,6 +417,21 @@ void Schedule::EnsureDeferredCodeSingleEntryPoint(BasicBlock* block) {
   merger->set_deferred(false);
   block->predecessors().clear();
   block->predecessors().push_back(merger);
+  MovePhis(block, merger);
+}
+
+void Schedule::MovePhis(BasicBlock* from, BasicBlock* to) {
+  for (size_t i = 0; i < from->NodeCount();) {
+    Node* node = from->NodeAt(i);
+    if (node->opcode() == IrOpcode::kPhi) {
+      to->AddNode(node);
+      from->RemoveNode(from->begin() + i);
+      DCHECK_EQ(nodeid_to_block_[node->id()], from);
+      nodeid_to_block_[node->id()] = to;
+    } else {
+      ++i;
+    }
+  }
 }
 
 void Schedule::PropagateDeferredMark() {

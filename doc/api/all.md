@@ -1,3 +1,4 @@
+<!--lint disable prohibited-strings-->
 @include documentation
 @include synopsis
 @include assert
@@ -14,17 +15,21 @@
 @include deprecations
 @include dns
 @include domain
+@include esm
 @include errors
 @include events
 @include fs
 @include globals
 @include http
+@include http2
 @include https
 @include inspector
+@include intl
 @include modules
 @include net
 @include os
 @include path
+@include perf_hooks
 @include process
 @include punycode
 @include querystring

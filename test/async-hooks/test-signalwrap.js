@@ -1,6 +1,9 @@
 'use strict';
-
 const common = require('../common');
+
+if (common.isWindows)
+  common.skip('no signals in Windows');
+
 const assert = require('assert');
 const initHooks = require('./init-hooks');
 const { checkInvocations } = require('./hook-checks');
@@ -9,6 +12,10 @@ const exec = require('child_process').exec;
 const hooks = initHooks();
 
 hooks.enable();
+
+// Keep the event loop open so process doesn't exit before receiving signals.
+const interval = setInterval(() => {}, 9999);
+
 process.on('SIGUSR2', common.mustCall(onsigusr2, 2));
 
 const as = hooks.activitiesOfTypes('SIGNALWRAP');
@@ -20,7 +27,7 @@ assert.strictEqual(typeof signal1.triggerAsyncId, 'number');
 checkInvocations(signal1, { init: 1 }, 'when SIGUSR2 handler is set up');
 
 let count = 0;
-exec('kill -USR2 ' + process.pid);
+exec(`kill -USR2 ${process.pid}`);
 
 let signal2;
 
@@ -34,7 +41,7 @@ function onsigusr2() {
       ' signal1: when first SIGUSR2 handler is called for the first time');
 
     // trigger same signal handler again
-    exec('kill -USR2 ' + process.pid);
+    exec(`kill -USR2 ${process.pid}`);
   } else {
     // second invocation
     checkInvocations(
@@ -59,17 +66,20 @@ function onsigusr2() {
       signal2, { init: 1 },
       'signal2: when second SIGUSR2 handler is setup');
 
-    exec('kill -USR2 ' + process.pid);
+    exec(`kill -USR2 ${process.pid}`);
   }
 }
 
 function onsigusr2Again() {
-  checkInvocations(
-    signal1, { init: 1, before: 2, after: 2, destroy: 1 },
-    'signal1: when second SIGUSR2 handler is called');
-  checkInvocations(
-    signal2, { init: 1, before: 1 },
-    'signal2: when second SIGUSR2 handler is called');
+  clearInterval(interval);
+  setImmediate(() => {
+    checkInvocations(
+      signal1, { init: 1, before: 2, after: 2, destroy: 1 },
+      'signal1: when second SIGUSR2 handler is called');
+    checkInvocations(
+      signal2, { init: 1, before: 1 },
+      'signal2: when second SIGUSR2 handler is called');
+  });
 }
 
 process.on('exit', onexit);

@@ -21,6 +21,10 @@
 
 'use strict';
 const common = require('../common');
+const fixtures = require('../common/fixtures');
+if (!common.canCreateSymLink())
+  common.skip('insufficient privileges');
+
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
@@ -28,16 +32,12 @@ const fs = require('fs');
 let linkTime;
 let fileTime;
 
-if (!common.canCreateSymLink()) {
-  common.skip('insufficient privileges');
-  return;
-}
+const tmpdir = require('../common/tmpdir');
+tmpdir.refresh();
 
-common.refreshTmpDir();
-
-// test creating and reading symbolic link
-const linkData = path.join(common.fixturesDir, '/cycles/root.js');
-const linkPath = path.join(common.tmpDir, 'symlink1.js');
+// Test creating and reading symbolic link
+const linkData = fixtures.path('/cycles/root.js');
+const linkPath = path.join(tmpdir.path, 'symlink1.js');
 
 fs.symlink(linkData, linkPath, common.mustCall(function(err) {
   assert.ifError(err);
@@ -58,6 +58,29 @@ fs.symlink(linkData, linkPath, common.mustCall(function(err) {
   }));
 }));
 
+[false, 1, {}, [], null, undefined].forEach((input) => {
+  const errObj = {
+    code: 'ERR_INVALID_ARG_TYPE',
+    name: 'TypeError [ERR_INVALID_ARG_TYPE]',
+    message: 'The "target" argument must be one of type string, Buffer, or ' +
+             `URL. Received type ${typeof input}`
+  };
+  assert.throws(() => fs.symlink(input, '', common.mustNotCall()), errObj);
+  assert.throws(() => fs.symlinkSync(input, ''), errObj);
+
+  errObj.message = errObj.message.replace('target', 'path');
+  assert.throws(() => fs.symlink('', input, common.mustNotCall()), errObj);
+  assert.throws(() => fs.symlinkSync('', input), errObj);
+});
+
+const errObj = {
+  code: 'ERR_FS_INVALID_SYMLINK_TYPE',
+  name: 'Error [ERR_FS_INVALID_SYMLINK_TYPE]',
+  message:
+    'Symlink type must be one of "dir", "file", or "junction". Received "🍏"'
+};
+assert.throws(() => fs.symlink('', '', '🍏', common.mustNotCall()), errObj);
+assert.throws(() => fs.symlinkSync('', '', '🍏'), errObj);
 
 process.on('exit', function() {
   assert.notStrictEqual(linkTime, fileTime);

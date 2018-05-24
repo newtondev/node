@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Flags: --harmony-async-iteration
+let {session, contextGroup, Protocol} = InspectorTest.start('Checks that async chains for for-await-of are correct.');
 
-InspectorTest.log('Checks that async chains for for-await-of are correct.');
-
-InspectorTest.addScript(`
+contextGroup.addScript(`
 
 function Debugger(value) {
   debugger;
@@ -50,7 +48,7 @@ async function Basic() {
     Debugger();
   }
 }
-
+// TODO(kozyatinskiy): this stack trace is suspicious.
 async function UncaughtReject() {
   async function loop() {
     for await (let x of [Reject(new Error("boop"))]) {
@@ -59,7 +57,7 @@ async function UncaughtReject() {
   }
   return loop().catch(Debugger);
 }
-
+// TODO(kozyatinskiy): this stack trace is suspicious.
 async function UncaughtThrow() {
   async function loop() {
     for await (let x of [Throw(new Error("boop"))]) {
@@ -88,7 +86,7 @@ async function CaughtThrow() {
     Debugger(e);
   }
 }
-
+// TODO(kozyatinskiy): this stack trace is suspicious.
 async function UncaughtRejectOnBreak() {
   async function loop() {
     for await (let x of RejectOnReturn(["0", "1"])) {
@@ -97,7 +95,7 @@ async function UncaughtRejectOnBreak() {
   }
   return loop().catch(Debugger);
 }
-
+// TODO(kozyatinskiy): this stack trace is suspicious.
 async function UncaughtThrowOnBreak() {
   async function loop() {
     for await (let x of ThrowOnReturn(["0", "1"])) {
@@ -106,7 +104,7 @@ async function UncaughtThrowOnBreak() {
   }
   return loop().catch(Debugger);
 }
-
+// TODO(kozyatinskiy): this stack trace is suspicious.
 async function CaughtRejectOnBreak() {
   try {
     for await (let x of RejectOnReturn(["0", "1"])) {
@@ -126,12 +124,12 @@ async function CaughtThrowOnBreak() {
     Debugger(e);
   }
 }
-//# sourceURL=test.js`, 7, 129);
+//# sourceURL=test.js`, 9, 26);
 
-InspectorTest.setupScriptMap();
+session.setupScriptMap();
 Protocol.Debugger.onPaused(message => {
-  InspectorTest.logCallFrames(message.params.callFrames);
-  InspectorTest.logAsyncStackTrace(message.params.asyncStackTrace);
+  session.logCallFrames(message.params.callFrames);
+  session.logAsyncStackTrace(message.params.asyncStackTrace);
   InspectorTest.log('');
   Protocol.Debugger.resume();
 });

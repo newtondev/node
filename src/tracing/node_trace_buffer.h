@@ -1,8 +1,8 @@
-#ifndef SRC_NODE_TRACE_BUFFER_H_
-#define SRC_NODE_TRACE_BUFFER_H_
+#ifndef SRC_TRACING_NODE_TRACE_BUFFER_H_
+#define SRC_TRACING_NODE_TRACE_BUFFER_H_
 
+#include "tracing/agent.h"
 #include "node_mutex.h"
-#include "tracing/node_trace_writer.h"
 #include "libplatform/v8-tracing.h"
 
 #include <atomic>
@@ -19,8 +19,7 @@ class NodeTraceBuffer;
 
 class InternalTraceBuffer {
  public:
-  InternalTraceBuffer(size_t max_chunks, uint32_t id,
-                      NodeTraceWriter* trace_writer);
+  InternalTraceBuffer(size_t max_chunks, uint32_t id, Agent* agent);
 
   TraceObject* AddTraceEvent(uint64_t* handle);
   TraceObject* GetEventByHandle(uint64_t handle);
@@ -42,7 +41,7 @@ class InternalTraceBuffer {
   Mutex mutex_;
   bool flushing_;
   size_t max_chunks_;
-  NodeTraceWriter* trace_writer_;
+  Agent* agent_;
   std::vector<std::unique_ptr<TraceBufferChunk>> chunks_;
   size_t total_chunks_ = 0;
   uint32_t current_chunk_seq_ = 1;
@@ -51,8 +50,7 @@ class InternalTraceBuffer {
 
 class NodeTraceBuffer : public TraceBuffer {
  public:
-  NodeTraceBuffer(size_t max_chunks, NodeTraceWriter* trace_writer,
-                  uv_loop_t* tracing_loop);
+  NodeTraceBuffer(size_t max_chunks, Agent* agent, uv_loop_t* tracing_loop);
   ~NodeTraceBuffer();
 
   TraceObject* AddTraceEvent(uint64_t* handle) override;
@@ -74,8 +72,7 @@ class NodeTraceBuffer : public TraceBuffer {
   Mutex exit_mutex_;
   // Used to wait until async handles have been closed.
   ConditionVariable exit_cond_;
-  std::unique_ptr<NodeTraceWriter> trace_writer_;
-  // TODO: Change std::atomic to something less contentious.
+  Agent* agent_;
   std::atomic<InternalTraceBuffer*> current_buf_;
   InternalTraceBuffer buffer1_;
   InternalTraceBuffer buffer2_;
@@ -84,4 +81,4 @@ class NodeTraceBuffer : public TraceBuffer {
 }  // namespace tracing
 }  // namespace node
 
-#endif  // SRC_NODE_TRACING_CONTROLLER_H_
+#endif  // SRC_TRACING_NODE_TRACE_BUFFER_H_

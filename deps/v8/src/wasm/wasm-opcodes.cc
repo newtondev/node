@@ -3,6 +3,10 @@
 // found in the LICENSE file.
 
 #include "src/wasm/wasm-opcodes.h"
+
+#include <array>
+
+#include "src/base/template-utils.h"
 #include "src/messages.h"
 #include "src/runtime/runtime.h"
 #include "src/signature.h"
@@ -39,15 +43,23 @@ namespace wasm {
   CASE_I32x4_OP(name, str) CASE_I16x8_OP(name, str) CASE_I8x16_OP(name, str)
 #define CASE_SIGN_OP(TYPE, name, str) \
   CASE_##TYPE##_OP(name##S, str "_s") CASE_##TYPE##_OP(name##U, str "_u")
+#define CASE_UNSIGNED_OP(TYPE, name, str) CASE_##TYPE##_OP(name##U, str "_u")
 #define CASE_ALL_SIGN_OP(name, str) \
   CASE_FLOAT_OP(name, str) CASE_SIGN_OP(INT, name, str)
 #define CASE_CONVERT_OP(name, RES, SRC, src_suffix, str) \
   CASE_##RES##_OP(U##name##SRC, str "_u/" src_suffix)    \
       CASE_##RES##_OP(S##name##SRC, str "_s/" src_suffix)
+#define CASE_CONVERT_SAT_OP(name, RES, SRC, src_suffix, str)   \
+  CASE_##RES##_OP(U##name##Sat##SRC, str "_u:sat/" src_suffix) \
+      CASE_##RES##_OP(S##name##Sat##SRC, str "_s:sat/" src_suffix)
 #define CASE_L32_OP(name, str)          \
   CASE_SIGN_OP(I32, name##8, str "8")   \
   CASE_SIGN_OP(I32, name##16, str "16") \
   CASE_I32_OP(name, str "32")
+#define CASE_U32_OP(name, str)            \
+  CASE_I32_OP(name, str "32")             \
+  CASE_UNSIGNED_OP(I32, name##8, str "8") \
+  CASE_UNSIGNED_OP(I32, name##16, str "16")
 
 const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
   switch (opcode) {
@@ -89,6 +101,12 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     CASE_I32_OP(ConvertI64, "wrap/i64")
     CASE_CONVERT_OP(Convert, INT, F32, "f32", "trunc")
     CASE_CONVERT_OP(Convert, INT, F64, "f64", "trunc")
+    // TODO(kschimpf): Simplify after filling in other saturating operations.
+    CASE_CONVERT_SAT_OP(Convert, I32, F32, "f32", "trunc")
+    CASE_CONVERT_SAT_OP(Convert, I32, F64, "f64", "trunc")
+    CASE_CONVERT_SAT_OP(Convert, I64, F32, "f32", "trunc")
+    CASE_CONVERT_SAT_OP(Convert, I64, F64, "f64", "trunc")
+
     CASE_CONVERT_OP(Convert, I64, I32, "i32", "extend")
     CASE_CONVERT_OP(Convert, F32, I32, "i32", "convert")
     CASE_CONVERT_OP(Convert, F32, I64, "i64", "convert")
@@ -100,6 +118,9 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     CASE_I64_OP(ReinterpretF64, "reinterpret/f64")
     CASE_F32_OP(ReinterpretI32, "reinterpret/i32")
     CASE_F64_OP(ReinterpretI64, "reinterpret/i64")
+    CASE_INT_OP(SExtendI8, "sign_extend8")
+    CASE_INT_OP(SExtendI16, "sign_extend16")
+    CASE_I64_OP(SExtendI32, "sign_extend32")
     CASE_OP(Unreachable, "unreachable")
     CASE_OP(Nop, "nop")
     CASE_OP(Block, "block")
@@ -137,7 +158,9 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     // Non-standard opcodes.
     CASE_OP(Try, "try")
     CASE_OP(Throw, "throw")
+    CASE_OP(Rethrow, "rethrow")
     CASE_OP(Catch, "catch")
+    CASE_OP(CatchAll, "catch_all")
 
     // asm.js-only opcodes.
     CASE_F64_OP(Acos, "acos")
@@ -175,16 +198,11 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     CASE_SIMD_OP(Sub, "sub")
     CASE_SIMD_OP(Mul, "mul")
     CASE_F32x4_OP(Abs, "abs")
-    CASE_F32x4_OP(Sqrt, "sqrt")
-    CASE_F32x4_OP(Div, "div")
+    CASE_F32x4_OP(AddHoriz, "add_horizontal")
     CASE_F32x4_OP(RecipApprox, "recip_approx")
-    CASE_F32x4_OP(RecipRefine, "recip_refine")
     CASE_F32x4_OP(RecipSqrtApprox, "recip_sqrt_approx")
-    CASE_F32x4_OP(RecipSqrtRefine, "recip_sqrt_refine")
     CASE_F32x4_OP(Min, "min")
     CASE_F32x4_OP(Max, "max")
-    CASE_F32x4_OP(MinNum, "min_num")
-    CASE_F32x4_OP(MaxNum, "max_num")
     CASE_F32x4_OP(Lt, "lt")
     CASE_F32x4_OP(Le, "le")
     CASE_F32x4_OP(Gt, "gt")
@@ -209,6 +227,8 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     CASE_SIGN_OP(SIMDI, Ge, "ge")
     CASE_SIGN_OP(SIMDI, Shr, "shr")
     CASE_SIMDI_OP(Shl, "shl")
+    CASE_I32x4_OP(AddHoriz, "add_horizontal")
+    CASE_I16x8_OP(AddHoriz, "add_horizontal")
     CASE_SIGN_OP(I16x8, AddSaturate, "add_saturate")
     CASE_SIGN_OP(I8x16, AddSaturate, "add_saturate")
     CASE_SIGN_OP(I16x8, SubSaturate, "sub_saturate")
@@ -217,55 +237,102 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
     CASE_S128_OP(Or, "or")
     CASE_S128_OP(Xor, "xor")
     CASE_S128_OP(Not, "not")
-    CASE_S32x4_OP(Select, "select")
-    CASE_S32x4_OP(Swizzle, "swizzle")
-    CASE_S32x4_OP(Shuffle, "shuffle")
-    CASE_S16x8_OP(Select, "select")
-    CASE_S16x8_OP(Swizzle, "swizzle")
-    CASE_S16x8_OP(Shuffle, "shuffle")
-    CASE_S8x16_OP(Select, "select")
-    CASE_S8x16_OP(Swizzle, "swizzle")
+    CASE_S128_OP(Select, "select")
     CASE_S8x16_OP(Shuffle, "shuffle")
-    CASE_S1x4_OP(And, "and")
-    CASE_S1x4_OP(Or, "or")
-    CASE_S1x4_OP(Xor, "xor")
-    CASE_S1x4_OP(Not, "not")
     CASE_S1x4_OP(AnyTrue, "any_true")
     CASE_S1x4_OP(AllTrue, "all_true")
-    CASE_S1x8_OP(And, "and")
-    CASE_S1x8_OP(Or, "or")
-    CASE_S1x8_OP(Xor, "xor")
-    CASE_S1x8_OP(Not, "not")
     CASE_S1x8_OP(AnyTrue, "any_true")
     CASE_S1x8_OP(AllTrue, "all_true")
-    CASE_S1x16_OP(And, "and")
-    CASE_S1x16_OP(Or, "or")
-    CASE_S1x16_OP(Xor, "xor")
-    CASE_S1x16_OP(Not, "not")
     CASE_S1x16_OP(AnyTrue, "any_true")
     CASE_S1x16_OP(AllTrue, "all_true")
 
     // Atomic operations.
-    CASE_L32_OP(AtomicAdd, "atomic_add")
-    CASE_L32_OP(AtomicAnd, "atomic_and")
-    CASE_L32_OP(AtomicCompareExchange, "atomic_cmpxchng")
-    CASE_L32_OP(AtomicExchange, "atomic_xchng")
-    CASE_L32_OP(AtomicOr, "atomic_or")
-    CASE_L32_OP(AtomicSub, "atomic_sub")
-    CASE_L32_OP(AtomicXor, "atomic_xor")
+    CASE_U32_OP(AtomicLoad, "atomic_load")
+    CASE_U32_OP(AtomicStore, "atomic_store")
+    CASE_U32_OP(AtomicAdd, "atomic_add")
+    CASE_U32_OP(AtomicSub, "atomic_sub")
+    CASE_U32_OP(AtomicAnd, "atomic_and")
+    CASE_U32_OP(AtomicOr, "atomic_or")
+    CASE_U32_OP(AtomicXor, "atomic_xor")
+    CASE_U32_OP(AtomicExchange, "atomic_xchng")
+    CASE_U32_OP(AtomicCompareExchange, "atomic_cmpxchng")
 
     default : return "unknown";
     // clang-format on
   }
 }
 
+#undef CASE_OP
+#undef CASE_I32_OP
+#undef CASE_I64_OP
+#undef CASE_F32_OP
+#undef CASE_F64_OP
+#undef CASE_F32x4_OP
+#undef CASE_I32x4_OP
+#undef CASE_I16x8_OP
+#undef CASE_I8x16_OP
+#undef CASE_S128_OP
+#undef CASE_S32x4_OP
+#undef CASE_S16x8_OP
+#undef CASE_S8x16_OP
+#undef CASE_S1x4_OP
+#undef CASE_S1x8_OP
+#undef CASE_S1x16_OP
+#undef CASE_INT_OP
+#undef CASE_FLOAT_OP
+#undef CASE_ALL_OP
+#undef CASE_SIMD_OP
+#undef CASE_SIMDI_OP
+#undef CASE_SIGN_OP
+#undef CASE_UNSIGNED_OP
+#undef CASE_ALL_SIGN_OP
+#undef CASE_CONVERT_OP
+#undef CASE_CONVERT_SAT_OP
+#undef CASE_L32_OP
+#undef CASE_U32_OP
+
 bool WasmOpcodes::IsPrefixOpcode(WasmOpcode opcode) {
   switch (opcode) {
-#define CHECK_PREFIX(name, opcode) \
-  case k##name##Prefix:            \
-    return true;
+#define CHECK_PREFIX(name, opcode) case k##name##Prefix:
     FOREACH_PREFIX(CHECK_PREFIX)
 #undef CHECK_PREFIX
+    return true;
+    default:
+      return false;
+  }
+}
+
+bool WasmOpcodes::IsControlOpcode(WasmOpcode opcode) {
+  switch (opcode) {
+#define CHECK_OPCODE(name, opcode, _) case kExpr##name:
+    FOREACH_CONTROL_OPCODE(CHECK_OPCODE)
+#undef CHECK_OPCODE
+    return true;
+    default:
+      return false;
+  }
+}
+
+bool WasmOpcodes::IsUnconditionalJump(WasmOpcode opcode) {
+  switch (opcode) {
+    case kExprUnreachable:
+    case kExprBr:
+    case kExprBrTable:
+    case kExprReturn:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool WasmOpcodes::IsSignExtensionOpcode(WasmOpcode opcode) {
+  switch (opcode) {
+    case kExprI32SExtendI8:
+    case kExprI32SExtendI16:
+    case kExprI64SExtendI8:
+    case kExprI64SExtendI16:
+    case kExprI64SExtendI32:
+      return true;
     default:
       return false;
   }
@@ -288,108 +355,120 @@ bool IsJSCompatibleSignature(const FunctionSig* sig) {
   for (auto type : sig->all()) {
     if (type == wasm::kWasmI64 || type == wasm::kWasmS128) return false;
   }
-  return true;
+  return sig->return_count() <= 1;
 }
+
+namespace {
 
 #define DECLARE_SIG_ENUM(name, ...) kSigEnum_##name,
-
-enum WasmOpcodeSig { FOREACH_SIGNATURE(DECLARE_SIG_ENUM) };
-
-// TODO(titzer): not static-initializer safe. Wrap in LazyInstance.
-#define DECLARE_SIG(name, ...)                      \
-  static ValueType kTypes_##name[] = {__VA_ARGS__}; \
-  static const FunctionSig kSig_##name(             \
-      1, static_cast<int>(arraysize(kTypes_##name)) - 1, kTypes_##name);
-
+enum WasmOpcodeSig : byte {
+  kSigEnum_None,
+  FOREACH_SIGNATURE(DECLARE_SIG_ENUM)
+};
+#undef DECLARE_SIG_ENUM
+#define DECLARE_SIG(name, ...)                                                \
+  constexpr ValueType kTypes_##name[] = {__VA_ARGS__};                        \
+  constexpr int kReturnsCount_##name = kTypes_##name[0] == kWasmStmt ? 0 : 1; \
+  constexpr FunctionSig kSig_##name(                                          \
+      kReturnsCount_##name, static_cast<int>(arraysize(kTypes_##name)) - 1,   \
+      kTypes_##name + (1 - kReturnsCount_##name));
 FOREACH_SIGNATURE(DECLARE_SIG)
+#undef DECLARE_SIG
 
 #define DECLARE_SIG_ENTRY(name, ...) &kSig_##name,
-
-static const FunctionSig* kSimpleExprSigs[] = {
+constexpr const FunctionSig* kSimpleExprSigs[] = {
     nullptr, FOREACH_SIGNATURE(DECLARE_SIG_ENTRY)};
+#undef DECLARE_SIG_ENTRY
 
-#define DECLARE_SIMD_SIG_ENTRY(name, ...) &kSig_##name,
+// gcc 4.7 - 4.9 has a bug which causes the constexpr attribute to get lost when
+// passing functions (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52892). Hence
+// encapsulate these constexpr functions in functors.
+// TODO(clemensh): Remove this once we require gcc >= 5.0.
 
-static const FunctionSig* kSimdExprSigs[] = {
-    nullptr, FOREACH_SIMD_SIGNATURE(DECLARE_SIMD_SIG_ENTRY)};
-
-static byte kSimpleExprSigTable[256];
-static byte kSimpleAsmjsExprSigTable[256];
-static byte kSimdExprSigTable[256];
-static byte kAtomicExprSigTable[256];
-
-// Initialize the signature table.
-static void InitSigTables() {
-#define SET_SIG_TABLE(name, opcode, sig) \
-  kSimpleExprSigTable[opcode] = static_cast<int>(kSigEnum_##sig) + 1;
-  FOREACH_SIMPLE_OPCODE(SET_SIG_TABLE);
-#undef SET_SIG_TABLE
-#define SET_ASMJS_SIG_TABLE(name, opcode, sig) \
-  kSimpleAsmjsExprSigTable[opcode] = static_cast<int>(kSigEnum_##sig) + 1;
-  FOREACH_ASMJS_COMPAT_OPCODE(SET_ASMJS_SIG_TABLE);
-#undef SET_ASMJS_SIG_TABLE
-  byte simd_index;
-#define SET_SIG_TABLE(name, opcode, sig) \
-  simd_index = opcode & 0xff;            \
-  kSimdExprSigTable[simd_index] = static_cast<int>(kSigEnum_##sig) + 1;
-  FOREACH_SIMD_0_OPERAND_OPCODE(SET_SIG_TABLE)
-#undef SET_SIG_TABLE
-  byte atomic_index;
-#define SET_ATOMIC_SIG_TABLE(name, opcode, sig) \
-  atomic_index = opcode & 0xff;                 \
-  kAtomicExprSigTable[atomic_index] = static_cast<int>(kSigEnum_##sig) + 1;
-  FOREACH_ATOMIC_OPCODE(SET_ATOMIC_SIG_TABLE)
-#undef SET_ATOMIC_SIG_TABLE
-}
-
-class SigTable {
- public:
-  SigTable() {
-    // TODO(ahaas): Move {InitSigTable} into the class.
-    InitSigTables();
-  }
-  FunctionSig* Signature(WasmOpcode opcode) const {
-    return const_cast<FunctionSig*>(
-        kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
-  }
-  FunctionSig* AsmjsSignature(WasmOpcode opcode) const {
-    return const_cast<FunctionSig*>(
-        kSimpleExprSigs[kSimpleAsmjsExprSigTable[static_cast<byte>(opcode)]]);
-  }
-  FunctionSig* SimdSignature(WasmOpcode opcode) const {
-    return const_cast<FunctionSig*>(
-        kSimdExprSigs[kSimdExprSigTable[static_cast<byte>(opcode & 0xff)]]);
-  }
-  FunctionSig* AtomicSignature(WasmOpcode opcode) const {
-    return const_cast<FunctionSig*>(
-        kSimpleExprSigs[kAtomicExprSigTable[static_cast<byte>(opcode & 0xff)]]);
+struct GetOpcodeSigIndex {
+  constexpr WasmOpcodeSig operator()(byte opcode) const {
+#define CASE(name, opc, sig) opcode == opc ? kSigEnum_##sig:
+    return FOREACH_SIMPLE_OPCODE(CASE) kSigEnum_None;
+#undef CASE
   }
 };
 
-static base::LazyInstance<SigTable>::type sig_table = LAZY_INSTANCE_INITIALIZER;
+struct GetAsmJsOpcodeSigIndex {
+  constexpr WasmOpcodeSig operator()(byte opcode) const {
+#define CASE(name, opc, sig) opcode == opc ? kSigEnum_##sig:
+    return FOREACH_ASMJS_COMPAT_OPCODE(CASE) kSigEnum_None;
+#undef CASE
+  }
+};
+
+struct GetSimdOpcodeSigIndex {
+  constexpr WasmOpcodeSig operator()(byte opcode) const {
+#define CASE(name, opc, sig) opcode == (opc & 0xFF) ? kSigEnum_##sig:
+    return FOREACH_SIMD_0_OPERAND_OPCODE(CASE) kSigEnum_None;
+#undef CASE
+  }
+};
+
+struct GetAtomicOpcodeSigIndex {
+  constexpr WasmOpcodeSig operator()(byte opcode) const {
+#define CASE(name, opc, sig) opcode == (opc & 0xFF) ? kSigEnum_##sig:
+    return FOREACH_ATOMIC_OPCODE(CASE) kSigEnum_None;
+#undef CASE
+}
+};
+
+struct GetNumericOpcodeSigIndex {
+  constexpr WasmOpcodeSig operator()(byte opcode) const {
+#define CASE(name, opc, sig) opcode == (opc & 0xFF) ? kSigEnum_##sig:
+    return FOREACH_NUMERIC_OPCODE(CASE) kSigEnum_None;
+#undef CASE
+  }
+};
+
+constexpr std::array<WasmOpcodeSig, 256> kSimpleExprSigTable =
+    base::make_array<256>(GetOpcodeSigIndex{});
+constexpr std::array<WasmOpcodeSig, 256> kSimpleAsmjsExprSigTable =
+    base::make_array<256>(GetAsmJsOpcodeSigIndex{});
+constexpr std::array<WasmOpcodeSig, 256> kSimdExprSigTable =
+    base::make_array<256>(GetSimdOpcodeSigIndex{});
+constexpr std::array<WasmOpcodeSig, 256> kAtomicExprSigTable =
+    base::make_array<256>(GetAtomicOpcodeSigIndex{});
+constexpr std::array<WasmOpcodeSig, 256> kNumericExprSigTable =
+    base::make_array<256>(GetNumericOpcodeSigIndex{});
+
+}  // namespace
 
 FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
-  if (opcode >> 8 == kSimdPrefix) {
-    return sig_table.Get().SimdSignature(opcode);
-  } else {
-    return sig_table.Get().Signature(opcode);
+  switch (opcode >> 8) {
+    case kSimdPrefix:
+      return const_cast<FunctionSig*>(
+          kSimpleExprSigs[kSimdExprSigTable[opcode & 0xFF]]);
+    case kAtomicPrefix:
+      return const_cast<FunctionSig*>(
+          kSimpleExprSigs[kAtomicExprSigTable[opcode & 0xFF]]);
+    case kNumericPrefix:
+      return const_cast<FunctionSig*>(
+          kSimpleExprSigs[kNumericExprSigTable[opcode & 0xFF]]);
+    default:
+      DCHECK_GT(kSimpleExprSigTable.size(), opcode);
+      return const_cast<FunctionSig*>(
+          kSimpleExprSigs[kSimpleExprSigTable[opcode]]);
   }
 }
 
 FunctionSig* WasmOpcodes::AsmjsSignature(WasmOpcode opcode) {
-  return sig_table.Get().AsmjsSignature(opcode);
+  DCHECK_GT(kSimpleAsmjsExprSigTable.size(), opcode);
+  return const_cast<FunctionSig*>(
+      kSimpleExprSigs[kSimpleAsmjsExprSigTable[opcode]]);
 }
 
-FunctionSig* WasmOpcodes::AtomicSignature(WasmOpcode opcode) {
-  return sig_table.Get().AtomicSignature(opcode);
-}
-
-// TODO(titzer): pull WASM_64 up to a common header.
-#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
-#define WASM_64 1
-#else
-#define WASM_64 0
-#endif
+// Define constexpr arrays.
+constexpr uint8_t LoadType::kLoadSizeLog2[];
+constexpr ValueType LoadType::kValueType[];
+constexpr MachineType LoadType::kMemType[];
+constexpr uint8_t StoreType::kStoreSizeLog2[];
+constexpr ValueType StoreType::kValueType[];
+constexpr MachineRepresentation StoreType::kMemRep[];
 
 int WasmOpcodes::TrapReasonToMessageId(TrapReason reason) {
   switch (reason) {

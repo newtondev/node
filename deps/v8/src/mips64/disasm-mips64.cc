@@ -60,17 +60,6 @@ class Decoder {
   int InstructionDecode(byte* instruction);
 
  private:
-  const uint32_t kMsaI8Mask = ((3U << 24) | ((1 << 6) - 1));
-  const uint32_t kMsaI5Mask = ((7U << 23) | ((1 << 6) - 1));
-  const uint32_t kMsaMI10Mask = (15U << 2);
-  const uint32_t kMsaBITMask = ((7U << 23) | ((1 << 6) - 1));
-  const uint32_t kMsaELMMask = (15U << 22);
-  const uint32_t kMsa3RMask = ((7U << 23) | ((1 << 6) - 1));
-  const uint32_t kMsa3RFMask = ((15U << 22) | ((1 << 6) - 1));
-  const uint32_t kMsaVECMask = (23U << 21);
-  const uint32_t kMsa2RMask = (7U << 18);
-  const uint32_t kMsa2RFMask = (15U << 17);
-
   // Bottleneck functions to print into the out_buffer.
   void PrintChar(const char ch);
   void Print(const char* str);
@@ -92,10 +81,15 @@ class Decoder {
   void PrintSd(Instruction* instr);
   void PrintSs1(Instruction* instr);
   void PrintSs2(Instruction* instr);
+  void PrintSs3(Instruction* instr);
+  void PrintSs4(Instruction* instr);
+  void PrintSs5(Instruction* instr);
   void PrintBc(Instruction* instr);
   void PrintCc(Instruction* instr);
   void PrintFunction(Instruction* instr);
   void PrintSecondaryField(Instruction* instr);
+  void PrintUImm9(Instruction* instr);
+  void PrintSImm9(Instruction* instr);
   void PrintUImm16(Instruction* instr);
   void PrintSImm16(Instruction* instr);
   void PrintXImm16(Instruction* instr);
@@ -151,6 +145,7 @@ class Decoder {
 
   void DecodeTypeImmediateCOP1(Instruction* instr);
   void DecodeTypeImmediateREGIMM(Instruction* instr);
+  void DecodeTypeImmediateSPECIAL3(Instruction* instr);
   void DecodeTypeImmediate(Instruction* instr);
 
   void DecodeTypeJump(Instruction* instr);
@@ -289,20 +284,41 @@ void Decoder::PrintSd(Instruction* instr) {
   out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%d", sd);
 }
 
-
-// Print the integer value of the rd field, when used as 'ext' size.
+// Print the integer value of ext/dext/dextu size from the msbd field.
 void Decoder::PrintSs1(Instruction* instr) {
-  int ss = instr->RdValue();
-  out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%d", ss + 1);
+  int msbd = instr->RdValue();
+  out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%d", msbd + 1);
 }
 
-
-// Print the integer value of the rd field, when used as 'ins' size.
+// Print the integer value of ins/dins/dinsu size from the msb and lsb fields
+// (for dinsu it is msbminus32 and lsbminus32 fields).
 void Decoder::PrintSs2(Instruction* instr) {
-  int ss = instr->RdValue();
-  int pos = instr->SaValue();
+  int msb = instr->RdValue();
+  int lsb = instr->SaValue();
   out_buffer_pos_ +=
-      SNPrintF(out_buffer_ + out_buffer_pos_, "%d", ss - pos + 1);
+      SNPrintF(out_buffer_ + out_buffer_pos_, "%d", msb - lsb + 1);
+}
+
+// Print the integer value of dextm size from the msbdminus32 field.
+void Decoder::PrintSs3(Instruction* instr) {
+  int msbdminus32 = instr->RdValue();
+  out_buffer_pos_ +=
+      SNPrintF(out_buffer_ + out_buffer_pos_, "%d", msbdminus32 + 32 + 1);
+}
+
+// Print the integer value of dinsm size from the msbminus32 and lsb fields.
+void Decoder::PrintSs4(Instruction* instr) {
+  int msbminus32 = instr->RdValue();
+  int lsb = instr->SaValue();
+  out_buffer_pos_ +=
+      SNPrintF(out_buffer_ + out_buffer_pos_, "%d", msbminus32 + 32 - lsb + 1);
+}
+
+// Print the integer value of dextu/dinsu pos from the lsbminus32 field.
+void Decoder::PrintSs5(Instruction* instr) {
+  int lsbminus32 = instr->SaValue();
+  out_buffer_pos_ +=
+      SNPrintF(out_buffer_ + out_buffer_pos_, "%d", lsbminus32 + 32);
 }
 
 
@@ -319,6 +335,17 @@ void Decoder::PrintCc(Instruction* instr) {
   out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "cc(%d)", cc);
 }
 
+// Print 9-bit unsigned immediate value.
+void Decoder::PrintUImm9(Instruction* instr) {
+  int32_t imm = instr->Imm9Value();
+  out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%u", imm);
+}
+
+// Print 9-bit signed immediate value.
+void Decoder::PrintSImm9(Instruction* instr) {
+  int32_t imm = ((instr->Imm9Value()) << 23) >> 23;
+  out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%d", imm);
+}
 
 // Print 16-bit unsigned immediate value.
 void Decoder::PrintUImm16(Instruction* instr) {
@@ -422,7 +449,7 @@ void Decoder::PrintPCImm21(Instruction* instr, int delta_pc, int n_bits) {
 void Decoder::PrintXImm26(Instruction* instr) {
   uint64_t target = static_cast<uint64_t>(instr->Imm26Value())
                     << kImmFieldShift;
-  target = (reinterpret_cast<uint64_t>(instr) & ~0xfffffff) | target;
+  target = (reinterpret_cast<uint64_t>(instr) & ~0xFFFFFFF) | target;
   out_buffer_pos_ +=
       SNPrintF(out_buffer_ + out_buffer_pos_, "0x%" PRIx64, target);
 }
@@ -458,7 +485,7 @@ void Decoder::PrintPCImm26(Instruction* instr, int delta_pc, int n_bits) {
 //      PC[GPRLEN-1 .. 28] || instr_index26 || 00
 void Decoder::PrintPCImm26(Instruction* instr) {
   int32_t imm26 = instr->Imm26Value();
-  uint64_t pc_mask = ~0xfffffff;
+  uint64_t pc_mask = ~0xFFFFFFF;
   uint64_t pc = ((uint64_t)(instr + 1) & pc_mask) | (imm26 << 2);
   out_buffer_pos_ +=
       SNPrintF(out_buffer_ + out_buffer_pos_, "%s",
@@ -662,7 +689,7 @@ void Decoder::PrintInstructionName(Instruction* instr) {
 // Handle all register based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatRegister(Instruction* instr, const char* format) {
-  DCHECK(format[0] == 'r');
+  DCHECK_EQ(format[0], 'r');
   if (format[1] == 's') {  // 'rs: Rs register.
     int reg = instr->RsValue();
     PrintRegister(reg);
@@ -677,14 +704,13 @@ int Decoder::FormatRegister(Instruction* instr, const char* format) {
     return 2;
   }
   UNREACHABLE();
-  return -1;
 }
 
 
 // Handle all FPUregister based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatFPURegister(Instruction* instr, const char* format) {
-  DCHECK(format[0] == 'f');
+  DCHECK_EQ(format[0], 'f');
   if ((CTC1 == instr->RsFieldRaw()) || (CFC1 == instr->RsFieldRaw())) {
     if (format[1] == 's') {  // 'fs: fs register.
       int reg = instr->FsValue();
@@ -723,13 +749,12 @@ int Decoder::FormatFPURegister(Instruction* instr, const char* format) {
     }
   }
   UNREACHABLE();
-  return -1;
 }
 
 // Handle all MSARegister based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatMSARegister(Instruction* instr, const char* format) {
-  DCHECK(format[0] == 'w');
+  DCHECK_EQ(format[0], 'w');
   if (format[1] == 's') {
     int reg = instr->WsValue();
     PrintMSARegister(reg);
@@ -745,7 +770,6 @@ int Decoder::FormatMSARegister(Instruction* instr, const char* format) {
   }
 
   UNREACHABLE();
-  return -1;
 }
 
 // FormatOption takes a formatting string and interprets it based on
@@ -915,6 +939,16 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
         DCHECK(STRING_STARTS_WITH(format, "imm8"));
         PrintMsaImm8(instr);
         return 4;
+      } else if (format[3] == '9') {
+        DCHECK(STRING_STARTS_WITH(format, "imm9"));
+        if (format[4] == 'u') {
+          DCHECK(STRING_STARTS_WITH(format, "imm9u"));
+          PrintUImm9(instr);
+        } else if (format[4] == 's') {
+          DCHECK(STRING_STARTS_WITH(format, "imm9s"));
+          PrintSImm9(instr);
+        }
+        return 5;
       } else if (format[3] == 'b') {
         DCHECK(STRING_STARTS_WITH(format, "immb"));
         PrintMsaImmBit(instr);
@@ -924,6 +958,7 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
         PrintMsaImmElm(instr);
         return 4;
       }
+      UNREACHABLE();
     }
     case 'r': {   // 'r: registers.
       return FormatRegister(instr, format);
@@ -954,14 +989,22 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
         }
         case 's': {
           if (format[2] == '1') {
-              DCHECK(STRING_STARTS_WITH(format, "ss1"));  /* ext size */
-              PrintSs1(instr);
-              return 3;
+            DCHECK(STRING_STARTS_WITH(format, "ss1"));  // ext, dext, dextu size
+            PrintSs1(instr);
+          } else if (format[2] == '2') {
+            DCHECK(STRING_STARTS_WITH(format, "ss2"));  // ins, dins, dinsu size
+            PrintSs2(instr);
+          } else if (format[2] == '3') {
+            DCHECK(STRING_STARTS_WITH(format, "ss3"));  // dextm size
+            PrintSs3(instr);
+          } else if (format[2] == '4') {
+            DCHECK(STRING_STARTS_WITH(format, "ss4"));  // dinsm size
+            PrintSs4(instr);
           } else {
-              DCHECK(STRING_STARTS_WITH(format, "ss2"));  /* ins size */
-              PrintSs2(instr);
-              return 3;
+            DCHECK(STRING_STARTS_WITH(format, "ss5"));  // dextu, dinsu pos
+            PrintSs5(instr);
           }
+          return 3;
         }
       }
     }
@@ -1002,7 +1045,6 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
       return 1;
   }
   UNREACHABLE();
-  return -1;
 }
 
 
@@ -1694,10 +1736,6 @@ void Decoder::DecodeTypeRegisterSPECIAL2(Instruction* instr) {
 
 void Decoder::DecodeTypeRegisterSPECIAL3(Instruction* instr) {
   switch (instr->FunctionFieldRaw()) {
-    case INS: {
-      Format(instr, "ins     'rt, 'rs, 'sa, 'ss2");
-      break;
-    }
     case EXT: {
       Format(instr, "ext     'rt, 'rs, 'sa, 'ss1");
       break;
@@ -1707,11 +1745,27 @@ void Decoder::DecodeTypeRegisterSPECIAL3(Instruction* instr) {
       break;
     }
     case DEXTM: {
-      Format(instr, "dextm   'rt, 'rs, 'sa, 'ss1");
+      Format(instr, "dextm   'rt, 'rs, 'sa, 'ss3");
       break;
     }
     case DEXTU: {
-      Format(instr, "dextu   'rt, 'rs, 'sa, 'ss1");
+      Format(instr, "dextu   'rt, 'rs, 'ss5, 'ss1");
+      break;
+    }
+    case INS: {
+      Format(instr, "ins     'rt, 'rs, 'sa, 'ss2");
+      break;
+    }
+    case DINS: {
+      Format(instr, "dins    'rt, 'rs, 'sa, 'ss2");
+      break;
+    }
+    case DINSM: {
+      Format(instr, "dinsm   'rt, 'rs, 'sa, 'ss4");
+      break;
+    }
+    case DINSU: {
+      Format(instr, "dinsu   'rt, 'rs, 'ss5, 'ss2");
       break;
     }
     case BSHFL: {
@@ -1747,10 +1801,6 @@ void Decoder::DecodeTypeRegisterSPECIAL3(Instruction* instr) {
           break;
         }
       }
-      break;
-    }
-    case DINS: {
-      Format(instr, "dins    'rt, 'rs, 'sa, 'ss2");
       break;
     }
     case DBSHFL: {
@@ -1837,6 +1887,9 @@ int Decoder::DecodeTypeRegister(Instruction* instr) {
         case kMsaMinor2RF:
           DecodeTypeMsa2RF(instr);
           break;
+        case kMsaMinorELM:
+          DecodeTypeMsaELM(instr);
+          break;
         default:
           UNREACHABLE();
       }
@@ -1915,6 +1968,44 @@ void Decoder::DecodeTypeImmediateREGIMM(Instruction* instr) {
   }
 }
 
+void Decoder::DecodeTypeImmediateSPECIAL3(Instruction* instr) {
+  switch (instr->FunctionFieldRaw()) {
+    case LL_R6: {
+      if (kArchVariant == kMips64r6) {
+        Format(instr, "ll     'rt, 'imm9s('rs)");
+      } else {
+        Unknown(instr);
+      }
+      break;
+    }
+    case LLD_R6: {
+      if (kArchVariant == kMips64r6) {
+        Format(instr, "lld     'rt, 'imm9s('rs)");
+      } else {
+        Unknown(instr);
+      }
+      break;
+    }
+    case SC_R6: {
+      if (kArchVariant == kMips64r6) {
+        Format(instr, "sc     'rt, 'imm9s('rs)");
+      } else {
+        Unknown(instr);
+      }
+      break;
+    }
+    case SCD_R6: {
+      if (kArchVariant == kMips64r6) {
+        Format(instr, "scd     'rt, 'imm9s('rs)");
+      } else {
+        Unknown(instr);
+      }
+      break;
+    }
+    default:
+      UNREACHABLE();
+  }
+}
 
 void Decoder::DecodeTypeImmediate(Instruction* instr) {
   switch (instr->OpcodeFieldRaw()) {
@@ -2017,7 +2108,7 @@ void Decoder::DecodeTypeImmediate(Instruction* instr) {
         if (rs_reg >= rt_reg) {
           Format(instr, "bovc  'rs, 'rt, 'imm16s -> 'imm16p4s2");
         } else {
-          DCHECK(rt_reg > 0);
+          DCHECK_GT(rt_reg, 0);
           if (rs_reg == 0) {
             Format(instr, "beqzalc 'rt, 'imm16s -> 'imm16p4s2");
           } else {
@@ -2036,7 +2127,7 @@ void Decoder::DecodeTypeImmediate(Instruction* instr) {
         if (rs_reg >= rt_reg) {
           Format(instr, "bnvc  'rs, 'rt, 'imm16s -> 'imm16p4s2");
         } else {
-          DCHECK(rt_reg > 0);
+          DCHECK_GT(rt_reg, 0);
           if (rs_reg == 0) {
             Format(instr, "bnezalc 'rt, 'imm16s -> 'imm16p4s2");
           } else {
@@ -2135,6 +2226,40 @@ void Decoder::DecodeTypeImmediate(Instruction* instr) {
     case SWR:
       Format(instr, "swr     'rt, 'imm16s('rs)");
       break;
+    case SDR:
+      Format(instr, "sdr     'rt, 'imm16s('rs)");
+      break;
+    case SDL:
+      Format(instr, "sdl     'rt, 'imm16s('rs)");
+      break;
+    case LL:
+      if (kArchVariant == kMips64r6) {
+        Unknown(instr);
+      } else {
+        Format(instr, "ll     'rt, 'imm16s('rs)");
+      }
+      break;
+    case LLD:
+      if (kArchVariant == kMips64r6) {
+        Unknown(instr);
+      } else {
+        Format(instr, "lld     'rt, 'imm16s('rs)");
+      }
+      break;
+    case SC:
+      if (kArchVariant == kMips64r6) {
+        Unknown(instr);
+      } else {
+        Format(instr, "sc     'rt, 'imm16s('rs)");
+      }
+      break;
+    case SCD:
+      if (kArchVariant == kMips64r6) {
+        Unknown(instr);
+      } else {
+        Format(instr, "scd     'rt, 'imm16s('rs)");
+      }
+      break;
     case LWC1:
       Format(instr, "lwc1    'ft, 'imm16s('rs)");
       break;
@@ -2190,6 +2315,9 @@ void Decoder::DecodeTypeImmediate(Instruction* instr) {
       }
       break;
     }
+    case SPECIAL3:
+      DecodeTypeImmediateSPECIAL3(instr);
+      break;
     case MSA:
       switch (instr->MSAMinorOpcodeField()) {
         case kMsaMinorI8:
@@ -2870,7 +2998,7 @@ void Decoder::DecodeTypeMsa2RF(Instruction* instr) {
 
 // Disassemble the instruction at *instr_ptr into the output buffer.
 // All instructions are one word long, except for the simulator
-// psuedo-instruction stop(msg). For that one special case, we return
+// pseudo-instruction stop(msg). For that one special case, we return
 // size larger than one kInstrSize.
 int Decoder::InstructionDecode(byte* instr_ptr) {
   Instruction* instr = Instruction::At(instr_ptr);

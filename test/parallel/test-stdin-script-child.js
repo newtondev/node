@@ -5,7 +5,7 @@ const assert = require('assert');
 const { spawn } = require('child_process');
 for (const args of [[], ['-']]) {
   const child = spawn(process.execPath, args, {
-    env: Object.assign(process.env, {
+    env: Object.assign({}, process.env, {
       NODE_DEBUG: process.argv[2]
     })
   });
@@ -19,7 +19,7 @@ for (const args of [[], ['-']]) {
 
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', function(c) {
-    console.error(`> ${c.trim().split(/\n/).join('\n> ')}`);
+    console.error(`> ${c.trim().split('\n').join('\n> ')}`);
   });
 
   child.on('close', common.mustCall(function(c) {

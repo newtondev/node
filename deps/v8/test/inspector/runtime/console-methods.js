@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-InspectorTest.log('Checks console methods');
+let {session, contextGroup, Protocol} = InspectorTest.start('Checks console methods');
 
-InspectorTest.addScript(`
+contextGroup.setupInjectedScriptEnvironment();
+contextGroup.addScript(`
 function testFunction() {
   console.debug('debug');
   console.error('error');
@@ -14,6 +15,7 @@ function testFunction() {
   console.dir('dir');
   console.dirxml('dirxml');
   console.table([[1,2],[3,4]]);
+  console.table([[1,2],[3,4]], [1,2]);
   console.trace('trace');
   console.trace();
   console.group();
@@ -27,6 +29,9 @@ function testFunction() {
   }
   foo();
   foo();
+  console.count();
+  console.count(undefined);
+  console.count('default');
 }
 //# sourceURL=test.js`, 7, 26);
 

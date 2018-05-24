@@ -5,11 +5,12 @@ const assert = require('assert');
 const URLSearchParams = require('url').URLSearchParams;
 const { test, assert_false, assert_true } = require('../common/wpt');
 
-/* eslint-disable */
-/* WPT Refs:
+/* The following tests are copied from WPT. Modifications to them should be
+   upstreamed first. Refs:
    https://github.com/w3c/web-platform-tests/blob/8791bed/url/urlsearchparams-has.html
    License: http://www.w3.org/Consortium/Legal/2008/04-testsuite-copyright.html
 */
+/* eslint-disable */
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     assert_true(params.has('a'));
@@ -39,20 +40,20 @@ test(function() {
 // Tests below are not from WPT.
 {
   const params = new URLSearchParams();
-  assert.throws(() => {
+  common.expectsError(() => {
     params.has.call(undefined);
-  }, common.expectsError({
+  }, {
     code: 'ERR_INVALID_THIS',
     type: TypeError,
     message: 'Value of "this" must be of type URLSearchParams'
-  }));
-  assert.throws(() => {
+  });
+  common.expectsError(() => {
     params.has();
-  }, common.expectsError({
+  }, {
     code: 'ERR_MISSING_ARGS',
     type: TypeError,
     message: 'The "name" argument must be specified'
-  }));
+  });
 
   const obj = {
     toString() { throw new Error('toString'); },

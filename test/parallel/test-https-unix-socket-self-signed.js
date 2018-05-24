@@ -1,18 +1,17 @@
 'use strict';
 const common = require('../common');
 
-if (!common.hasCrypto) {
+if (!common.hasCrypto)
   common.skip('missing crypto');
-  return;
-}
 
-common.refreshTmpDir();
+const tmpdir = require('../common/tmpdir');
+tmpdir.refresh();
 
-const fs = require('fs');
+const fixtures = require('../common/fixtures');
 const https = require('https');
 const options = {
-  cert: fs.readFileSync(common.fixturesDir + '/test_cert.pem'),
-  key: fs.readFileSync(common.fixturesDir + '/test_key.pem')
+  cert: fixtures.readSync('test_cert.pem'),
+  key: fixtures.readSync('test_key.pem')
 };
 
 const server = https.createServer(options, common.mustCall((req, res) => {

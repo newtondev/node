@@ -1,4 +1,7 @@
 'use strict';
+
+// Verifies that the REPL history file is created with mode 0600
+
 // Flags: --expose_internals
 
 const common = require('../common');
@@ -7,7 +10,6 @@ if (common.isWindows) {
   common.skip('Win32 uses ACLs for file permissions, ' +
               'modes are always 0666 and says nothing about group/other ' +
               'read access.');
-  return;
 }
 
 const assert = require('assert');
@@ -19,7 +21,7 @@ const Duplex = require('stream').Duplex;
 // and mode 600.
 
 const stream = new Duplex();
-stream.pause = stream.resume = common.noop;
+stream.pause = stream.resume = () => {};
 // ends immediately
 stream._read = function() {
   this.push(null);
@@ -29,24 +31,23 @@ stream._write = function(c, e, cb) {
 };
 stream.readable = stream.writable = true;
 
-common.refreshTmpDir();
-const replHistoryPath = path.join(common.tmpDir, '.node_repl_history');
+const tmpdir = require('../common/tmpdir');
+tmpdir.refresh();
+const replHistoryPath = path.join(tmpdir.path, '.node_repl_history');
 
 const checkResults = common.mustCall(function(err, r) {
   assert.ifError(err);
 
-  // The REPL registers 'module' and 'require' globals
-  common.allowGlobals(r.context.module, r.context.require);
-
   r.input.end();
   const stat = fs.statSync(replHistoryPath);
+  const fileMode = stat.mode & 0o777;
   assert.strictEqual(
-    stat.mode & 0o777, 0o600,
-    'REPL history file should be mode 0600');
+    fileMode, 0o600,
+    `REPL history file should be mode 0600 but was 0${fileMode.toString(8)}`);
 });
 
 repl.createInternalRepl(
-  {NODE_REPL_HISTORY: replHistoryPath},
+  { NODE_REPL_HISTORY: replHistoryPath },
   {
     terminal: true,
     input: stream,

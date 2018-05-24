@@ -13,6 +13,19 @@ assertThrows("/\\p{Bidi_C=False}/u");
 assertThrows("/\\P{Bidi_Control=Y}/u");
 assertThrows("/\\p{AHex=Yes}/u");
 
+assertThrows("/\\p{Composition_Exclusion}/u");
+assertThrows("/\\p{CE}/u");
+assertThrows("/\\p{Full_Composition_Exclusion}/u");
+assertThrows("/\\p{Comp_Ex}/u");
+assertThrows("/\\p{Grapheme_Link}/u");
+assertThrows("/\\p{Gr_Link}/u");
+assertThrows("/\\p{Hyphen}/u");
+assertThrows("/\\p{NFD_Inert}/u");
+assertThrows("/\\p{NFDK_Inert}/u");
+assertThrows("/\\p{NFC_Inert}/u");
+assertThrows("/\\p{NFKC_Inert}/u");
+assertThrows("/\\p{Segment_Starter}/u");
+
 t(/\p{Alphabetic}/u, "æ");
 f(/\p{Alpha}/u, "1");
 
@@ -43,9 +56,6 @@ f(/\p{CWT}/u, "1");
 t(/\p{Changes_When_Uppercased}/u, "b");
 f(/\p{CWU}/u, "1");
 
-//t(/\p{Composition_Exclusion}/u, "\u0958");
-//f(/\p{CE}/u, "1");
-
 t(/\p{Dash}/u, "-");
 f(/\p{Dash}/u, "1");
 
@@ -61,8 +71,8 @@ f(/\p{Dia}/u, "1");
 t(/\p{Emoji}/u, "\u2603");
 f(/\p{Emoji}/u, "x");
 
-// t(/\p{Emoji_Component}/u, "\u2603");
-// f(/\p{Emoji_Component}/u, "x");
+t(/\p{Emoji_Component}/u, "\u{1F1E6}");
+f(/\p{Emoji_Component}/u, "x");
 
 t(/\p{Emoji_Modifier_Base}/u, "\u{1F6CC}");
 f(/\p{Emoji_Modifier_Base}/u, "x");
@@ -75,9 +85,6 @@ f(/\p{Emoji_Presentation}/u, "x");
 
 t(/\p{Extender}/u, "\u3005");
 f(/\p{Ext}/u, "x");
-
-t(/\p{Full_Composition_Exclusion}/u, "\uFB1F");
-f(/\p{Comp_Ex}/u, "x");
 
 t(/\p{Grapheme_Base}/u, " ");
 f(/\p{Gr_Base}/u, "\u0010");
@@ -124,14 +131,14 @@ f(/\p{NChar}/u, "A");
 t(/\p{Pattern_White_Space}/u, "\u0009");
 f(/\p{Pat_Syn}/u, "A");
 
-// t(/\p{Prepended_Concatenation_Mark}/u, "\uFDD0");
-// f(/\p{PCM}/u, "A");
-
 t(/\p{Quotation_Mark}/u, "'");
 f(/\p{QMark}/u, "A");
 
 t(/\p{Radical}/u, "\u2FAD");
 f(/\p{Radical}/u, "A");
+
+t(/\p{Regional_Indicator}/u, "\u{1F1E6}");
+f(/\p{Regional_Indicator}/u, "A");
 
 t(/\p{Sentence_Terminal}/u, "!");
 f(/\p{STerm}/u, "A");

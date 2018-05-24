@@ -310,6 +310,9 @@ versions.
 The `--dry-run` argument will report in the usual way what the install would
 have done without actually installing anything.
 
+The `--package-lock-only` argument will only update the `package-lock.json`,
+instead of checking `node_modules` and downloading dependencies.
+
 The `-f` or `--force` argument will force npm to fetch remote resources even if a
 local copy exists on disk.
 
@@ -342,6 +345,9 @@ being installed.
 
 The `--no-shrinkwrap` argument, which will ignore an available
 package lock or shrinkwrap file and use the package.json instead.
+
+The `--no-package-lock` argument will prevent npm from creating a
+`package-lock.json` file.
 
 The `--nodedir=/path/to/node/source` argument will allow npm to find the
 node source code so that npm can compile native modules.

@@ -12,14 +12,21 @@ const { checkInvocations } = require('./hook-checks');
 const hooks = initHooks();
 hooks.enable();
 
-assert.throws(() => new AsyncResource(),
-              /^TypeError: type must be a string with length > 0$/);
-assert.throws(() => new AsyncResource('invalid_trigger_id', null),
-              /^RangeError: triggerAsyncId must be an unsigned integer$/);
+common.expectsError(
+  () => new AsyncResource(), {
+    code: 'ERR_INVALID_ARG_TYPE',
+    type: TypeError,
+  });
+common.expectsError(() => {
+  new AsyncResource('invalid_trigger_id', { triggerAsyncId: null });
+}, {
+  code: 'ERR_INVALID_ASYNC_ID',
+  type: RangeError,
+});
 
 assert.strictEqual(
-    typeof new AsyncResource('default_trigger_id').triggerAsyncId(),
-    'number'
+  new AsyncResource('default_trigger_id').triggerAsyncId(),
+  async_hooks.executionAsyncId()
 );
 
 // create first custom event 'alcazares' with triggerAsyncId derived

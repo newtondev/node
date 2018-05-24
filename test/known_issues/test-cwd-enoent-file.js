@@ -5,11 +5,10 @@
 const common = require('../common');
 const assert = require('assert');
 
-if (common.isSunOS || common.isWindows || common.isAix) {
+if (common.isSunOS || common.isWindows || common.isAIX) {
   // The current working directory cannot be removed on these platforms.
   // Change this to common.skip() when this is no longer a known issue test.
   assert.fail('cannot rmdir current working directory');
-  return;
 }
 
 const cp = require('child_process');
@@ -18,8 +17,9 @@ const fs = require('fs');
 if (process.argv[2] === 'child') {
   // Do nothing.
 } else {
-  common.refreshTmpDir();
-  const dir = fs.mkdtempSync(`${common.tmpDir}/`);
+  const tmpdir = require('../common/tmpdir');
+  tmpdir.refresh();
+  const dir = fs.mkdtempSync(`${tmpdir.path}/`);
   process.chdir(dir);
   fs.rmdirSync(dir);
   assert.throws(process.cwd,

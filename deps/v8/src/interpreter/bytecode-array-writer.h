@@ -7,37 +7,43 @@
 
 #include "src/base/compiler-specific.h"
 #include "src/globals.h"
-#include "src/interpreter/bytecode-pipeline.h"
+#include "src/interpreter/bytecodes.h"
 #include "src/source-position-table.h"
 
 namespace v8 {
 namespace internal {
 
+class BytecodeArray;
 class SourcePositionTableBuilder;
 
 namespace interpreter {
 
 class BytecodeLabel;
+class BytecodeNode;
+class BytecodeJumpTable;
 class ConstantArrayBuilder;
+
+namespace bytecode_array_writer_unittest {
+class BytecodeArrayWriterUnittest;
+}  // namespace bytecode_array_writer_unittest
 
 // Class for emitting bytecode as the final stage of the bytecode
 // generation pipeline.
-class V8_EXPORT_PRIVATE BytecodeArrayWriter final
-    : public NON_EXPORTED_BASE(BytecodePipelineStage) {
+class V8_EXPORT_PRIVATE BytecodeArrayWriter final {
  public:
   BytecodeArrayWriter(
       Zone* zone, ConstantArrayBuilder* constant_array_builder,
       SourcePositionTableBuilder::RecordingMode source_position_mode);
-  virtual ~BytecodeArrayWriter();
 
-  // BytecodePipelineStage interface.
-  void Write(BytecodeNode* node) override;
-  void WriteJump(BytecodeNode* node, BytecodeLabel* label) override;
-  void BindLabel(BytecodeLabel* label) override;
-  void BindLabel(const BytecodeLabel& target, BytecodeLabel* label) override;
-  Handle<BytecodeArray> ToBytecodeArray(
-      Isolate* isolate, int register_count, int parameter_count,
-      Handle<FixedArray> handler_table) override;
+  void Write(BytecodeNode* node);
+  void WriteJump(BytecodeNode* node, BytecodeLabel* label);
+  void WriteSwitch(BytecodeNode* node, BytecodeJumpTable* jump_table);
+  void BindLabel(BytecodeLabel* label);
+  void BindLabel(const BytecodeLabel& target, BytecodeLabel* label);
+  void BindJumpTableEntry(BytecodeJumpTable* jump_table, int case_value);
+  Handle<BytecodeArray> ToBytecodeArray(Isolate* isolate, int register_count,
+                                        int parameter_count,
+                                        Handle<ByteArray> handler_table);
 
  private:
   // Maximum sized packed bytecode is comprised of a prefix bytecode,
@@ -63,6 +69,7 @@ class V8_EXPORT_PRIVATE BytecodeArrayWriter final
 
   void EmitBytecode(const BytecodeNode* const node);
   void EmitJump(BytecodeNode* node, BytecodeLabel* label);
+  void EmitSwitch(BytecodeNode* node, BytecodeJumpTable* jump_table);
   void UpdateSourcePositionTable(const BytecodeNode* const node);
 
   void UpdateExitSeenInBlock(Bytecode bytecode);
@@ -90,7 +97,7 @@ class V8_EXPORT_PRIVATE BytecodeArrayWriter final
 
   bool exit_seen_in_block_;
 
-  friend class BytecodeArrayWriterUnittest;
+  friend class bytecode_array_writer_unittest::BytecodeArrayWriterUnittest;
   DISALLOW_COPY_AND_ASSIGN(BytecodeArrayWriter);
 };
 

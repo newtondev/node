@@ -5,13 +5,14 @@ const common = require('../common');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const SyncWriteStream = require('internal/fs').SyncWriteStream;
+const SyncWriteStream = require('internal/fs/sync_write_stream');
 
-common.refreshTmpDir();
+const tmpdir = require('../common/tmpdir');
+tmpdir.refresh();
 
-const filename = path.join(common.tmpDir, 'sync-write-stream.txt');
+const filename = path.join(tmpdir.path, 'sync-write-stream.txt');
 
-// Verify constructing the instance with defualt options.
+// Verify constructing the instance with default options.
 {
   const stream = new SyncWriteStream(1);
 
@@ -31,7 +32,7 @@ const filename = path.join(common.tmpDir, 'sync-write-stream.txt');
   assert.strictEqual(stream.listenerCount('end'), 1);
 }
 
-// Verfiy that the file will be writen synchronously.
+// Verify that the file will be written synchronously.
 {
   const fd = fs.openSync(filename, 'w');
   const stream = new SyncWriteStream(fd);
@@ -41,7 +42,7 @@ const filename = path.join(common.tmpDir, 'sync-write-stream.txt');
   assert.strictEqual(fs.readFileSync(filename).equals(chunk), true);
 }
 
-// Verify that the stream will unset the fd after destory().
+// Verify that the stream will unset the fd after destroy().
 {
   const fd = fs.openSync(filename, 'w');
   const stream = new SyncWriteStream(fd);
@@ -54,7 +55,7 @@ const filename = path.join(common.tmpDir, 'sync-write-stream.txt');
   assert.strictEqual(stream.destroySoon(), true);
 }
 
-// Verfit that the 'end' event listener will also destroy the stream.
+// Verify that the 'end' event listener will also destroy the stream.
 {
   const fd = fs.openSync(filename, 'w');
   const stream = new SyncWriteStream(fd);

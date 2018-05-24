@@ -1,5 +1,8 @@
-@// NB(chrisdickinson): if you move this file, be sure to update tools/doc/html.js to
-@// point at the new location.
+@// NB(chrisdickinson): if you move this file, be sure to update
+@// tools/doc/html.js to point at the new location.
+
+<!--introduced_in=v0.10.0-->
+
 * [About these Docs](documentation.html)
 * [Usage & Example](synopsis.html)
 
@@ -19,17 +22,21 @@
 * [Deprecated APIs](deprecations.html)
 * [DNS](dns.html)
 * [Domain](domain.html)
+* [ECMAScript Modules](esm.html)
 * [Errors](errors.html)
 * [Events](events.html)
 * [File System](fs.html)
 * [Globals](globals.html)
 * [HTTP](http.html)
+* [HTTP/2](http2.html)
 * [HTTPS](https.html)
 * [Inspector](inspector.html)
+* [Internationalization](intl.html)
 * [Modules](modules.html)
 * [Net](net.html)
 * [OS](os.html)
 * [Path](path.html)
+* [Performance Hooks](perf_hooks.html)
 * [Process](process.html)
 * [Punycode](punycode.html)
 * [Query Strings](querystring.html)
@@ -39,7 +46,7 @@
 * [String Decoder](string_decoder.html)
 * [Timers](timers.html)
 * [TLS/SSL](tls.html)
-* [Tracing](tracing.html)
+* [Trace Events](tracing.html)
 * [TTY](tty.html)
 * [UDP/Datagram](dgram.html)
 * [URL](url.html)
@@ -51,4 +58,4 @@
 <div class="line"></div>
 
 * [GitHub Repo & Issue Tracker](https://github.com/nodejs/node)
-* [Mailing List](http://groups.google.com/group/nodejs)
+* [Mailing List](https://groups.google.com/group/nodejs)

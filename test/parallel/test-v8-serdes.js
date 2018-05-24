@@ -20,6 +20,13 @@ const objects = [
   circular
 ];
 
+const hostObject = new (process.binding('js_stream').JSStream)();
+
+const serializerTypeError =
+  /^TypeError: Class constructor Serializer cannot be invoked without 'new'$/;
+const deserializerTypeError =
+  /^TypeError: Class constructor Deserializer cannot be invoked without 'new'$/;
+
 {
   const ser = new v8.DefaultSerializer();
   ser.writeHeader();
@@ -58,8 +65,8 @@ const objects = [
 {
   const ser = new v8.DefaultSerializer();
   ser._writeHostObject = common.mustCall((object) => {
-    assert.strictEqual(object, process.stdin._handle);
-    const buf = Buffer.from('stdin');
+    assert.strictEqual(object, hostObject);
+    const buf = Buffer.from('hostObjectTag');
 
     ser.writeUint32(buf.length);
     ser.writeRawBytes(buf);
@@ -69,23 +76,23 @@ const objects = [
   });
 
   ser.writeHeader();
-  ser.writeValue({ val: process.stdin._handle });
+  ser.writeValue({ val: hostObject });
 
   const des = new v8.DefaultDeserializer(ser.releaseBuffer());
   des._readHostObject = common.mustCall(() => {
     const length = des.readUint32();
     const buf = des.readRawBytes(length);
 
-    assert.strictEqual(buf.toString(), 'stdin');
+    assert.strictEqual(buf.toString(), 'hostObjectTag');
 
     assert.deepStrictEqual(des.readUint64(), [1, 2]);
     assert.strictEqual(des.readDouble(), -0.25);
-    return process.stdin._handle;
+    return hostObject;
   });
 
   des.readHeader();
 
-  assert.strictEqual(des.readValue().val, process.stdin._handle);
+  assert.strictEqual(des.readValue().val, hostObject);
 }
 
 {
@@ -96,12 +103,12 @@ const objects = [
 
   ser.writeHeader();
   assert.throws(() => {
-    ser.writeValue({ val: process.stdin._handle });
+    ser.writeValue({ val: hostObject });
   }, /foobar/);
 }
 
 {
-  assert.throws(() => v8.serialize(process.stdin._handle),
+  assert.throws(() => v8.serialize(hostObject),
                 /^Error: Unknown host object type: \[object .*\]$/);
 }
 
@@ -127,19 +134,12 @@ const objects = [
   buf = buf.slice(32);
 
   const expectedResult = os.endianness() === 'LE' ?
-      new Uint16Array([0xdead, 0xbeef]) : new Uint16Array([0xadde, 0xefbe]);
+    new Uint16Array([0xdead, 0xbeef]) : new Uint16Array([0xadde, 0xefbe]);
 
   assert.deepStrictEqual(v8.deserialize(buf), expectedResult);
 }
 
 {
-  assert.throws(
-    () => { v8.Serializer(); },
-    /^TypeError: Class constructor Serializer cannot be invoked without 'new'$/
-  );
-
-  assert.throws(
-    () => { v8.Deserializer(); },
-    /^TypeError: Class constructor Deserializer cannot be invoked without 'new'$/
-  );
+  assert.throws(v8.Serializer, serializerTypeError);
+  assert.throws(v8.Deserializer, deserializerTypeError);
 }

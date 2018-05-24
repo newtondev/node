@@ -20,10 +20,12 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+
+const backslash = /\\/g;
 
 console.error('load test-module-loading.js');
 
@@ -98,14 +100,6 @@ const d2 = require('../fixtures/b/d');
   assert.notStrictEqual(threeFolder, three);
 }
 
-console.error('test package.json require() loading');
-assert.throws(
-  function() {
-    require('../fixtures/packages/invalid');
-  },
-  /^SyntaxError: Error parsing .+: Unexpected token , in JSON at position 1$/
-);
-
 assert.strictEqual(require('../fixtures/packages/index').ok, 'ok',
                    'Failed loading package');
 assert.strictEqual(require('../fixtures/packages/main').ok, 'ok',
@@ -144,7 +138,7 @@ try {
   assert.strictEqual(e.message, 'blah');
 }
 
-assert.strictEqual(require('path').dirname(__filename), __dirname);
+assert.strictEqual(path.dirname(__filename), __dirname);
 
 console.error('load custom file types with extensions');
 require.extensions['.test'] = function(module, filename) {
@@ -195,7 +189,10 @@ try {
     require(`${loadOrder}file3`);
   } catch (e) {
     // Not a real .node module, but we know we require'd the right thing.
-    assert.ok(e.message.replace(/\\/g, '/').match(/file3\.node/));
+    if (common.isOpenBSD) // OpenBSD errors with non-ELF object error
+      assert.ok(/File not an ELF object/.test(e.message.replace(backslash, '/')));
+    else
+      assert.ok(/file3\.node/.test(e.message.replace(backslash, '/')));
   }
   assert.strictEqual(require(`${loadOrder}file4`).file4, 'file4.reg', msg);
   assert.strictEqual(require(`${loadOrder}file5`).file5, 'file5.reg2', msg);
@@ -203,7 +200,10 @@ try {
   try {
     require(`${loadOrder}file7`);
   } catch (e) {
-    assert.ok(e.message.replace(/\\/g, '/').match(/file7\/index\.node/));
+    if (common.isOpenBSD)
+      assert.ok(/File not an ELF object/.test(e.message.replace(backslash, '/')));
+    else
+      assert.ok(/file7\/index\.node/.test(e.message.replace(backslash, '/')));
   }
   assert.strictEqual(require(`${loadOrder}file8`).file8, 'file8/index.reg',
                      msg);
@@ -220,7 +220,8 @@ try {
 }
 
 {
-  // #1357 Loading JSON files with require()
+  // Loading JSON files with require()
+  // See https://github.com/nodejs/node-v0.x-archive/issues/1357.
   const json = require('../fixtures/packages/main/package.json');
   assert.deepStrictEqual(json, {
     name: 'package-name',
@@ -235,15 +236,21 @@ try {
   // modules that we've required, and that all of them contain
   // the appropriate children, and so on.
 
+  const visited = new Set();
   const children = module.children.reduce(function red(set, child) {
+    if (visited.has(child)) return set;
+    visited.add(child);
     let id = path.relative(path.dirname(__dirname), child.id);
-    id = id.replace(/\\/g, '/');
+    id = id.replace(backslash, '/');
     set[id] = child.children.reduce(red, {});
     return set;
   }, {});
 
   assert.deepStrictEqual(children, {
-    'common/index.js': {},
+    'common/index.js': {
+      'common/fixtures.js': {},
+      'common/tmpdir.js': {}
+    },
     'fixtures/not-main-module.js': {},
     'fixtures/a.js': {
       'fixtures/b/c.js': {
@@ -297,17 +304,6 @@ try {
 }
 
 
-// require() must take string, and must be truthy
-assert.throws(function() {
-  console.error('require non-string');
-  require({ foo: 'bar' });
-}, /path must be a string/);
-
-assert.throws(function() {
-  console.error('require empty string');
-  require('');
-}, /missing path/);
-
 process.on('exit', function() {
   assert.ok(a.A instanceof Function);
   assert.strictEqual(a.A(), 'A done');
@@ -330,7 +326,8 @@ process.on('exit', function() {
 });
 
 
-// #1440 Loading files with a byte order marker.
+// Loading files with a byte order marker.
+// See https://github.com/nodejs/node-v0.x-archive/issues/1440.
 assert.strictEqual(require('../fixtures/utf8-bom.js'), 42);
 assert.strictEqual(require('../fixtures/utf8-bom.json'), 42);
 

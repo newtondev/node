@@ -1,6 +1,7 @@
 'use strict';
 const common = require('../common.js');
 const assert = require('assert');
+
 const bench = common.createBenchmark(main, {
   type: [
     'Int8Array',
@@ -14,37 +15,30 @@ const bench = common.createBenchmark(main, {
     'Uint8ClampedArray',
   ],
   n: [1],
-  method: ['strict', 'nonstrict'],
+  method: [
+    'deepEqual',
+    'deepStrictEqual',
+    'notDeepEqual',
+    'notDeepStrictEqual'
+  ],
   len: [1e6]
 });
 
-function main(conf) {
-  const type = conf.type;
+function main({ type, n, len, method }) {
   const clazz = global[type];
-  const n = +conf.n;
-  const len = +conf.len;
-
   const actual = new clazz(len);
   const expected = new clazz(len);
-  var i;
+  const expectedWrong = Buffer.alloc(len);
+  const wrongIndex = Math.floor(len / 2);
+  expectedWrong[wrongIndex] = 123;
 
-  switch (conf.method) {
-    case 'strict':
-      bench.start();
-      for (i = 0; i < n; ++i) {
-        // eslint-disable-next-line no-restricted-properties
-        assert.deepEqual(actual, expected);
-      }
-      bench.end(n);
-      break;
-    case 'nonstrict':
-      bench.start();
-      for (i = 0; i < n; ++i) {
-        assert.deepStrictEqual(actual, expected);
-      }
-      bench.end(n);
-      break;
-    default:
-      throw new Error('Unsupported method');
+  // eslint-disable-next-line no-restricted-properties
+  const fn = method !== '' ? assert[method] : assert.deepEqual;
+  const value2 = method.includes('not') ? expectedWrong : expected;
+
+  bench.start();
+  for (var i = 0; i < n; ++i) {
+    fn(actual, value2);
   }
+  bench.end(n);
 }

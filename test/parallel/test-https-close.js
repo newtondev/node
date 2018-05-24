@@ -1,16 +1,14 @@
 'use strict';
 const common = require('../common');
-const fs = require('fs');
-
-if (!common.hasCrypto) {
+if (!common.hasCrypto)
   common.skip('missing crypto');
-  return;
-}
+
+const fixtures = require('../common/fixtures');
 const https = require('https');
 
 const options = {
-  key: fs.readFileSync(`${common.fixturesDir}/keys/agent1-key.pem`),
-  cert: fs.readFileSync(`${common.fixturesDir}/keys/agent1-cert.pem`)
+  key: fixtures.readKey('agent1-key.pem'),
+  cert: fixtures.readKey('agent1-cert.pem')
 };
 
 const connections = {};
@@ -49,7 +47,7 @@ server.listen(0, function() {
   };
 
   const req = https.request(requestOptions, function(res) {
-    res.on('data', common.noop);
+    res.on('data', () => {});
     setImmediate(shutdown);
   });
   req.end();

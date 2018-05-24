@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 
 #include "src/objects-inl.h"
-#include "test/fuzzer/wasm-section-fuzzers.h"
+#include "test/fuzzer/wasm-fuzzer-common.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  return fuzz_wasm_section(v8::internal::wasm::kImportSectionCode, data, size);
+  return v8::internal::wasm::fuzzer::FuzzWasmSection(
+      v8::internal::wasm::kImportSectionCode, data, size);
 }

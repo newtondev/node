@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-InspectorTest.log('Checks command line API.');
+let {session, contextGroup, Protocol} = InspectorTest.start('Checks command line API.');
 
 InspectorTest.runAsyncTestSuite([
   async function testKeys() {
@@ -33,6 +33,31 @@ InspectorTest.runAsyncTestSuite([
     await Protocol.Runtime.disable();
   },
 
+  async function testQueryObjects() {
+    InspectorTest.logMessage(await Protocol.Runtime.evaluate({expression: 'queryObjects', includeCommandLineAPI: true}));
+    await Protocol.Runtime.enable();
+    let {result:{result:{objectId}}} = await Protocol.Runtime.evaluate({expression: 'Promise.prototype'});
+    Protocol.Runtime.evaluate({expression: 'queryObjects(Promise)', includeCommandLineAPI: true});
+    let request = await Protocol.Runtime.onceInspectRequested();
+    InspectorTest.logMessage(request);
+    InspectorTest.logMessage('Is Promise.prototype: ' + await isEqual(objectId, request.params.object.objectId));
+
+    Protocol.Runtime.evaluate({expression: 'queryObjects(Promise.prototype)', includeCommandLineAPI: true});
+    request = await Protocol.Runtime.onceInspectRequested();
+    InspectorTest.logMessage(request);
+    InspectorTest.logMessage('Is Promise.prototype: ' + await isEqual(objectId, request.params.object.objectId));
+
+    ({result:{result:{objectId}}} = await Protocol.Runtime.evaluate({expression:'p = {a:1}'}));
+    Protocol.Runtime.evaluate({expression: 'queryObjects(p)', includeCommandLineAPI: true});
+    request = await Protocol.Runtime.onceInspectRequested();
+    InspectorTest.logMessage(request);
+    InspectorTest.logMessage('Is p: ' + await isEqual(objectId, request.params.object.objectId));
+
+    Protocol.Runtime.evaluate({expression: 'queryObjects(1)', includeCommandLineAPI: true});
+    InspectorTest.logMessage(await Protocol.Runtime.onceInspectRequested());
+    await Protocol.Runtime.disable();
+  },
+
   async function testEvaluationResult() {
     InspectorTest.logMessage(await Protocol.Runtime.evaluate({expression: '$_', includeCommandLineAPI: true}));
     await Protocol.Runtime.evaluate({expression: '42', objectGroup: 'console', includeCommandLineAPI: true});
@@ -46,7 +71,7 @@ InspectorTest.runAsyncTestSuite([
   },
 
   async function testDebug() {
-    InspectorTest.setupScriptMap();
+    session.setupScriptMap();
     await Protocol.Debugger.enable();
     InspectorTest.logMessage(await Protocol.Runtime.evaluate({expression: 'debug', includeCommandLineAPI: true}));
     InspectorTest.logMessage(await Protocol.Runtime.evaluate({expression: 'undebug', includeCommandLineAPI: true}));
@@ -54,7 +79,7 @@ InspectorTest.runAsyncTestSuite([
     await Protocol.Runtime.evaluate({expression: 'debug(foo)', includeCommandLineAPI: true});
     Protocol.Runtime.evaluate({ expression: 'foo()'});
     let message = await Protocol.Debugger.oncePaused();
-    InspectorTest.logCallFrames(message.params.callFrames);
+    session.logCallFrames(message.params.callFrames);
     InspectorTest.logMessage(message.params.hitBreakpoints);
     await Protocol.Debugger.resume();
     await Protocol.Runtime.evaluate({expression: 'undebug(foo)', includeCommandLineAPI: true});
@@ -65,7 +90,7 @@ InspectorTest.runAsyncTestSuite([
     await Protocol.Runtime.evaluate({expression: 'this.debug(foo)'});
     Protocol.Runtime.evaluate({ expression: 'foo()'});
     message = await Protocol.Debugger.oncePaused();
-    InspectorTest.logCallFrames(message.params.callFrames);
+    session.logCallFrames(message.params.callFrames);
     InspectorTest.logMessage(message.params.hitBreakpoints);
     await Protocol.Debugger.resume();
     await Protocol.Runtime.evaluate({expression: 'this.undebug(foo)'});
@@ -173,3 +198,12 @@ InspectorTest.runAsyncTestSuite([
     await Protocol.Runtime.disable();
   }
 ]);
+
+async function isEqual(objectId1, objectId2) {
+  return (await Protocol.Runtime.callFunctionOn({
+    objectId: objectId1,
+    functionDeclaration: 'function(arg){return this === arg;}',
+    returnByValue: true,
+    arguments: [{objectId: objectId2}]
+  })).result.result.value;
+}

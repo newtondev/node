@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Flags: --harmony-regexp-dotall
-
 function toSlowMode(re) {
   re.exec = (str) => RegExp.prototype.exec.call(re, str);
   return re;
@@ -54,6 +52,12 @@ function toSlowMode(re) {
   assertTrue(re.sticky);
   assertTrue(re.unicode);
   assertFalse(re.dotAll);
+}
+
+// Different construction variants with all flags.
+{
+  assertEquals("gimsuy", new RegExp("", "yusmig").flags);
+  assertEquals("gimsuy", new RegExp().compile("", "yusmig").flags);
 }
 
 // Default '.' behavior.

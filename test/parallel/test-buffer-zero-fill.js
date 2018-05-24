@@ -2,8 +2,8 @@
 
 require('../common');
 const assert = require('assert');
-const Buffer = require('buffer').Buffer;
 
+// Tests deprecated Buffer API on purpose
 const buf1 = Buffer(100);
 const buf2 = new Buffer(100);
 

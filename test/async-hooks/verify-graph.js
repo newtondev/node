@@ -32,7 +32,7 @@ function pruneTickObjects(activities) {
       foundTickObject = true;
 
       // point all triggerAsyncIds that point to the tickObject
-      // to its triggerAsyncId and findally remove it from the activities
+      // to its triggerAsyncId and finally remove it from the activities
       const tickObject = activities[tickObjectIdx];
       const newTriggerId = tickObject.triggerAsyncId;
       const oldTriggerId = tickObject.uid;
@@ -106,7 +106,7 @@ module.exports.printGraph = function printGraph(hooks) {
   function procesNode(x) {
     const key = x.type.replace(/WRAP/, '').toLowerCase();
     if (!ids[key]) ids[key] = 1;
-    const id = key + ':' + ids[key]++;
+    const id = `${key}:${ids[key]++}`;
     uidtoid[x.uid] = id;
     const triggerAsyncId = uidtoid[x.triggerAsyncId] || null;
     graph.push({ type: x.type, id, triggerAsyncId });

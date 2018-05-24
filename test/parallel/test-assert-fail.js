@@ -1,53 +1,37 @@
 'use strict';
-const common = require('../common');
+
+require('../common');
 const assert = require('assert');
 
-// no args
+// No args
 assert.throws(
   () => { assert.fail(); },
-  common.expectsError({
+  {
     code: 'ERR_ASSERTION',
-    type: assert.AssertionError,
-    message: 'undefined undefined undefined'
-  })
+    name: 'AssertionError [ERR_ASSERTION]',
+    message: 'Failed',
+    operator: undefined,
+    actual: undefined,
+    expected: undefined
+  }
 );
 
-// one arg = message
-assert.throws(
-  () => { assert.fail('custom message'); },
-  common.expectsError({
-    code: 'ERR_ASSERTION',
-    type: assert.AssertionError,
-    message: 'custom message'
-  })
-);
+// One arg = message
+assert.throws(() => {
+  assert.fail('custom message');
+}, {
+  code: 'ERR_ASSERTION',
+  name: 'AssertionError [ERR_ASSERTION]',
+  message: 'custom message',
+  operator: undefined,
+  actual: undefined,
+  expected: undefined
+});
 
-// two args only, operator defaults to '!='
-assert.throws(
-  () => { assert.fail('first', 'second'); },
-  common.expectsError({
-    code: 'ERR_ASSERTION',
-    type: assert.AssertionError,
-    message: '\'first\' != \'second\''
-  })
-);
-
-// three args
-assert.throws(
-  () => { assert.fail('ignored', 'ignored', 'another custom message'); },
-  common.expectsError({
-    code: 'ERR_ASSERTION',
-    type: assert.AssertionError,
-    message: 'another custom message'
-  })
-);
-
-// no third arg (but a fourth arg)
-assert.throws(
-  () => { assert.fail('first', 'second', undefined, 'operator'); },
-  common.expectsError({
-    code: 'ERR_ASSERTION',
-    type: assert.AssertionError,
-    message: '\'first\' operator \'second\''
-  })
-);
+// One arg = Error
+assert.throws(() => {
+  assert.fail(new TypeError('custom message'));
+}, {
+  name: 'TypeError',
+  message: 'custom message'
+});

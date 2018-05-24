@@ -18,11 +18,16 @@ class Handle;
 class Isolate;
 
 // Forward declarations.
-class ObjectVisitor;
+class BailoutId;
+class RootVisitor;
 enum class InterpreterPushArgsMode : unsigned;
 namespace compiler {
 class CodeAssemblerState;
 }
+
+// Convenience macro to avoid generating named accessors for all builtins.
+#define BUILTIN_CODE(isolate, name) \
+  (isolate)->builtins()->builtin_handle(Builtins::k##name)
 
 class Builtins {
  public:
@@ -31,7 +36,7 @@ class Builtins {
   void TearDown();
 
   // Garbage collection support.
-  void IterateBuiltins(ObjectVisitor* v);
+  void IterateBuiltins(RootVisitor* v);
 
   // Disassembler support.
   const char* Lookup(byte* pc);
@@ -43,40 +48,54 @@ class Builtins {
         builtin_count
   };
 
-#define DECLARE_BUILTIN_ACCESSOR(Name, ...) \
-  V8_EXPORT_PRIVATE Handle<Code> Name();
-  BUILTIN_LIST_ALL(DECLARE_BUILTIN_ACCESSOR)
-#undef DECLARE_BUILTIN_ACCESSOR
+  static const int32_t kNoBuiltinId = -1;
+
+  static bool IsBuiltinId(int maybe_id) {
+    return 0 <= maybe_id && maybe_id < builtin_count;
+  }
+
+  // The different builtin kinds are documented in builtins-definitions.h.
+  enum Kind { CPP, API, TFJ, TFC, TFS, TFH, ASM };
+
+  static BailoutId GetContinuationBailoutId(Name name);
+  static Name GetBuiltinFromBailoutId(BailoutId);
 
   // Convenience wrappers.
-  Handle<Code> CallFunction(
-      ConvertReceiverMode = ConvertReceiverMode::kAny,
-      TailCallMode tail_call_mode = TailCallMode::kDisallow);
-  Handle<Code> Call(ConvertReceiverMode = ConvertReceiverMode::kAny,
-                    TailCallMode tail_call_mode = TailCallMode::kDisallow);
-  Handle<Code> CallBoundFunction(TailCallMode tail_call_mode);
+  Handle<Code> CallFunction(ConvertReceiverMode = ConvertReceiverMode::kAny);
+  Handle<Code> Call(ConvertReceiverMode = ConvertReceiverMode::kAny);
   Handle<Code> NonPrimitiveToPrimitive(
       ToPrimitiveHint hint = ToPrimitiveHint::kDefault);
   Handle<Code> OrdinaryToPrimitive(OrdinaryToPrimitiveHint hint);
   Handle<Code> InterpreterPushArgsThenCall(ConvertReceiverMode receiver_mode,
-                                           TailCallMode tail_call_mode,
                                            InterpreterPushArgsMode mode);
   Handle<Code> InterpreterPushArgsThenConstruct(InterpreterPushArgsMode mode);
   Handle<Code> NewFunctionContext(ScopeType scope_type);
-  Handle<Code> NewCloneShallowArray(AllocationSiteMode allocation_mode);
-  Handle<Code> NewCloneShallowObject(int length);
+  Handle<Code> JSConstructStubGeneric();
 
-  Code* builtin(Name name) {
+  // Used by BuiltinDeserializer.
+  void set_builtin(int index, HeapObject* builtin);
+
+  Code* builtin(int index) {
+    DCHECK(IsBuiltinId(index));
     // Code::cast cannot be used here since we access builtins
     // during the marking phase of mark sweep. See IC::Clear.
-    return reinterpret_cast<Code*>(builtins_[name]);
+    return reinterpret_cast<Code*>(builtins_[index]);
   }
 
-  Address builtin_address(Name name) {
-    return reinterpret_cast<Address>(&builtins_[name]);
+  Address builtin_address(int index) {
+    DCHECK(IsBuiltinId(index));
+    return reinterpret_cast<Address>(&builtins_[index]);
   }
 
-  static Callable CallableFor(Isolate* isolate, Name name);
+  V8_EXPORT_PRIVATE Handle<Code> builtin_handle(int index);
+
+  // Used by lazy deserialization to determine whether a given builtin has been
+  // deserialized. See the DeserializeLazy builtin.
+  Object** builtins_table_address() { return &builtins_[0]; }
+
+  V8_EXPORT_PRIVATE static Callable CallableFor(Isolate* isolate, Name name);
+
+  static int GetStackParameterCount(Name name);
 
   static const char* name(int index);
 
@@ -84,11 +103,46 @@ class Builtins {
   // Address otherwise.
   static Address CppEntryOf(int index);
 
+  static Kind KindOf(int index);
+  static const char* KindNameOf(int index);
+
   static bool IsCpp(int index);
-  static bool IsApi(int index);
   static bool HasCppImplementation(int index);
 
+  // True, iff the given code object is a builtin. Note that this does not
+  // necessarily mean that its kind is Code::BUILTIN.
+  static bool IsBuiltin(Code* code);
+
+  // True, iff the given code object is a builtin with off-heap code.
+  static bool IsOffHeapBuiltin(Code* code);
+
+  // Returns true iff the given builtin can be lazy-loaded from the snapshot.
+  // This is true in general for most builtins with the exception of a few
+  // special cases such as CompileLazy and DeserializeLazy.
+  static bool IsLazy(int index);
+
+  // Helper methods used for testing isolate-independent builtins.
+  // TODO(jgruber,v8:6666): Remove once all builtins have been migrated.
+  static bool IsIsolateIndependent(int index);
+
+  // This is the condition we currently use to determine whether a builtin is
+  // copied off-heap when --stress-off-heap-code is passed. Such builtins do not
+  // need to be isolate-independent, e.g. they can contain external references
+  // that point to one specific isolate. A further restrictions is that there
+  // must be enough space for the trampoline.
+  static bool IsOffHeapSafe(int index);
+
+  // The off-heap trampoline is short but requires a certain minimal instruction
+  // size. This function states whether a given builtin is too short.
+  static bool IsTooShortForOffHeapTrampoline(int index);
+
   bool is_initialized() const { return initialized_; }
+
+  // Used by SetupIsolateDelegate and Deserializer.
+  void MarkInitialized() {
+    DCHECK(!initialized_);
+    initialized_ = true;
+  }
 
   MUST_USE_RESULT static MaybeHandle<Object> InvokeApiFunction(
       Isolate* isolate, bool is_construct, Handle<HeapObject> function,
@@ -105,27 +159,24 @@ class Builtins {
 
  private:
   Builtins();
-  // Used by SetupIsolateDelegate.
-  void MarkInitialized() {
-    DCHECK(!initialized_);
-    initialized_ = true;
-  }
 
   static void Generate_CallFunction(MacroAssembler* masm,
-                                    ConvertReceiverMode mode,
-                                    TailCallMode tail_call_mode);
+                                    ConvertReceiverMode mode);
 
-  static void Generate_CallBoundFunctionImpl(MacroAssembler* masm,
-                                             TailCallMode tail_call_mode);
+  static void Generate_CallBoundFunctionImpl(MacroAssembler* masm);
 
-  static void Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode,
-                            TailCallMode tail_call_mode);
-  static void Generate_CallForwardVarargs(MacroAssembler* masm,
-                                          Handle<Code> code);
+  static void Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode);
+
+  enum class CallOrConstructMode { kCall, kConstruct };
+  static void Generate_CallOrConstructVarargs(MacroAssembler* masm,
+                                              Handle<Code> code);
+  static void Generate_CallOrConstructForwardVarargs(MacroAssembler* masm,
+                                                     CallOrConstructMode mode,
+                                                     Handle<Code> code);
 
   static void Generate_InterpreterPushArgsThenCallImpl(
       MacroAssembler* masm, ConvertReceiverMode receiver_mode,
-      TailCallMode tail_call_mode, InterpreterPushArgsMode mode);
+      InterpreterPushArgsMode mode);
 
   static void Generate_InterpreterPushArgsThenConstructImpl(
       MacroAssembler* masm, InterpreterPushArgsMode mode);
@@ -136,7 +187,7 @@ class Builtins {
   static void Generate_##Name(compiler::CodeAssemblerState* state);
 
   BUILTIN_LIST(IGNORE_BUILTIN, IGNORE_BUILTIN, DECLARE_TF, DECLARE_TF,
-               DECLARE_TF, DECLARE_TF, DECLARE_ASM, DECLARE_ASM)
+               DECLARE_TF, DECLARE_TF, DECLARE_ASM)
 
 #undef DECLARE_ASM
 #undef DECLARE_TF

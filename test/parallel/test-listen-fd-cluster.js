@@ -21,17 +21,15 @@
 
 'use strict';
 const common = require('../common');
+if (common.isWindows)
+  common.skip('This test is disabled on windows.');
+
 const assert = require('assert');
 const http = require('http');
 const net = require('net');
 const cluster = require('cluster');
 
 console.error('Cluster listen fd test', process.argv[2] || 'runner');
-
-if (common.isWindows) {
-  common.skip('This test is disabled on windows.');
-  return;
-}
 
 // Process relationship is:
 //
@@ -87,7 +85,7 @@ function test(cb) {
     conn.end('hello from parent\n');
   }).listen(0, function() {
     const port = this.address().port;
-    console.error('server listening on %d', port);
+    console.error(`server listening on ${port}`);
 
     const spawn = require('child_process').spawn;
     const master = spawn(process.execPath, [__filename, 'master'], {

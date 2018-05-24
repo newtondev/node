@@ -48,7 +48,7 @@ bool StringStream::Put(char c) {
       buffer_ = new_buffer;
     } else {
       // Reached the end of the available buffer.
-      DCHECK(capacity_ >= 5);
+      DCHECK_GE(capacity_, 5);
       length_ = capacity_ - 1;  // Indicate fullness of the stream.
       buffer_[length_ - 4] = '.';
       buffer_[length_ - 3] = '.';
@@ -129,7 +129,7 @@ void StringStream::Add(Vector<const char> format, Vector<FmtElm> elms) {
       int value = current.data_.u_int_;
       if (0x20 <= value && value <= 0x7F) {
         Put(value);
-      } else if (value <= 0xff) {
+      } else if (value <= 0xFF) {
         Add("\\x%02x", value);
       } else {
         Add("\\u%04x", value);
@@ -173,7 +173,7 @@ void StringStream::Add(Vector<const char> format, Vector<FmtElm> elms) {
   }
 
   // Verify that the buffer is 0-terminated
-  DCHECK(buffer_[length_] == '\0');
+  DCHECK_EQ(buffer_[length_], '\0');
 }
 
 
@@ -190,15 +190,15 @@ void StringStream::PrintObject(Object* o) {
     HeapObject* ho = HeapObject::cast(o);
     DebugObjectCache* debug_object_cache = ho->GetIsolate()->
         string_stream_debug_object_cache();
-    for (int i = 0; i < debug_object_cache->length(); i++) {
+    for (size_t i = 0; i < debug_object_cache->size(); i++) {
       if ((*debug_object_cache)[i] == o) {
-        Add("#%d#", i);
+        Add("#%d#", static_cast<int>(i));
         return;
       }
     }
-    if (debug_object_cache->length() < kMentionedObjectCacheMaxSize) {
-      Add("#%d#", debug_object_cache->length());
-      debug_object_cache->Add(HeapObject::cast(o));
+    if (debug_object_cache->size() < kMentionedObjectCacheMaxSize) {
+      Add("#%d#", static_cast<int>(debug_object_cache->size()));
+      debug_object_cache->push_back(HeapObject::cast(o));
     } else {
       Add("@%p", o);
     }
@@ -242,18 +242,18 @@ Handle<String> StringStream::ToString(Isolate* isolate) {
 
 
 void StringStream::ClearMentionedObjectCache(Isolate* isolate) {
-  isolate->set_string_stream_current_security_token(NULL);
-  if (isolate->string_stream_debug_object_cache() == NULL) {
-    isolate->set_string_stream_debug_object_cache(new DebugObjectCache(0));
+  isolate->set_string_stream_current_security_token(nullptr);
+  if (isolate->string_stream_debug_object_cache() == nullptr) {
+    isolate->set_string_stream_debug_object_cache(new DebugObjectCache());
   }
-  isolate->string_stream_debug_object_cache()->Clear();
+  isolate->string_stream_debug_object_cache()->clear();
 }
 
 
 #ifdef DEBUG
 bool StringStream::IsMentionedObjectCacheClear(Isolate* isolate) {
   return object_print_mode_ == kPrintObjectConcise ||
-         isolate->string_stream_debug_object_cache()->length() == 0;
+         isolate->string_stream_debug_object_cache()->size() == 0;
 }
 #endif
 
@@ -377,9 +377,9 @@ void StringStream::PrintMentionedObjectCache(Isolate* isolate) {
   DebugObjectCache* debug_object_cache =
       isolate->string_stream_debug_object_cache();
   Add("==== Key         ============================================\n\n");
-  for (int i = 0; i < debug_object_cache->length(); i++) {
+  for (size_t i = 0; i < debug_object_cache->size(); i++) {
     HeapObject* printee = (*debug_object_cache)[i];
-    Add(" #%d# %p: ", i, printee);
+    Add(" #%d# %p: ", static_cast<int>(i), printee);
     printee->ShortPrint(this);
     Add("\n");
     if (printee->IsJSObject()) {
@@ -389,7 +389,7 @@ void StringStream::PrintMentionedObjectCache(Isolate* isolate) {
       PrintUsingMap(JSObject::cast(printee));
       if (printee->IsJSArray()) {
         JSArray* array = JSArray::cast(printee);
-        if (array->HasFastObjectElements()) {
+        if (array->HasObjectElements()) {
           unsigned int limit = FixedArray::cast(array->elements())->length();
           unsigned int length =
             static_cast<uint32_t>(JSArray::cast(array)->length()->Number());
@@ -529,7 +529,7 @@ char* HeapStringAllocator::grow(unsigned* bytes) {
     return space_;
   }
   char* new_space = NewArray<char>(new_bytes);
-  if (new_space == NULL) {
+  if (new_space == nullptr) {
     return space_;
   }
   MemCopy(new_space, space_, *bytes);

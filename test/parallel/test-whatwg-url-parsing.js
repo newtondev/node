@@ -1,19 +1,21 @@
 'use strict';
 
 const common = require('../common');
-const URL = require('url').URL;
-const path = require('path');
-const assert = require('assert');
-
 if (!common.hasIntl) {
   // A handful of the tests fail when ICU is not included.
   common.skip('missing Intl');
-  return;
 }
 
+const URL = require('url').URL;
+const assert = require('assert');
+const fixtures = require('../common/fixtures');
+
 // Tests below are not from WPT.
-const tests = require(path.join(common.fixturesDir, 'url-tests'));
-const failureTests = tests.filter((test) => test.failure).concat([
+const tests = require(fixtures.path('url-tests'));
+
+const originalFailures = tests.filter((test) => test.failure);
+
+const typeFailures = [
   { input: '' },
   { input: 'test' },
   { input: undefined },
@@ -23,11 +25,29 @@ const failureTests = tests.filter((test) => test.failure).concat([
   { input: null },
   { input: new Date() },
   { input: new RegExp() },
-  { input: common.noop }
-]);
+  { input: 'test', base: null },
+  { input: 'http://nodejs.org', base: null },
+  { input: () => {} }
+];
+
+// See https://github.com/w3c/web-platform-tests/pull/10955
+// > If `failure` is true, parsing `about:blank` against `base`
+// > must give failure. This tests that the logic for converting
+// > base URLs into strings properly fails the whole parsing
+// > algorithm if the base URL cannot be parsed.
+const aboutBlankFailures = originalFailures
+  .map((test) => ({
+    input: 'about:blank',
+    base: test.input,
+    failure: true
+  }));
+
+const failureTests = originalFailures
+  .concat(typeFailures)
+  .concat(aboutBlankFailures);
 
 const expectedError = common.expectsError(
-    { code: 'ERR_INVALID_URL', type: TypeError });
+  { code: 'ERR_INVALID_URL', type: TypeError }, failureTests.length);
 
 for (const test of failureTests) {
   assert.throws(
@@ -37,7 +57,7 @@ for (const test of failureTests) {
         return false;
 
       // The input could be processed, so we don't do strict matching here
-      const match = (error + '').match(/Invalid URL: (.*)$/);
+      const match = (`${error}`).match(/Invalid URL: (.*)$/);
       if (!match) {
         return false;
       }
@@ -45,8 +65,8 @@ for (const test of failureTests) {
     });
 }
 
-const additional_tests = require(
-  path.join(common.fixturesDir, 'url-tests-additional.js'));
+const additional_tests =
+  require(fixtures.path('url-tests-additional.js'));
 
 for (const test of additional_tests) {
   const url = new URL(test.url);

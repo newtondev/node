@@ -1,20 +1,18 @@
 'use strict';
 const common = require('../common');
+if (common.isWindows) {
+  // No way to send CTRL_C_EVENT to processes from JS right now.
+  common.skip('platform not supported');
+}
+
 const assert = require('assert');
 const vm = require('vm');
-
 const spawn = require('child_process').spawn;
 
 const methods = [
   'runInThisContext',
   'runInContext'
 ];
-
-if (common.isWindows) {
-  // No way to send CTRL_C_EVENT to processes from JS right now.
-  common.skip('platform not supported');
-  return;
-}
 
 if (process.argv[2] === 'child') {
   const method = process.argv[3];
@@ -34,17 +32,21 @@ if (process.argv[2] === 'child') {
 
   const script = `process.send('${method}'); while(true) {}`;
   const args = method === 'runInContext' ?
-                          [vm.createContext({ process })] :
-                          [];
+    [vm.createContext({ process })] :
+    [];
   const options = { breakOnSigint: true };
 
-  assert.throws(() => { vm[method](script, ...args, options); },
-                /^Error: Script execution interrupted\.$/);
+  common.expectsError(
+    () => { vm[method](script, ...args, options); },
+    {
+      code: 'ERR_SCRIPT_EXECUTION_INTERRUPTED',
+      message: 'Script execution was interrupted by `SIGINT`'
+    });
   assert.strictEqual(firstHandlerCalled, 0);
   assert.strictEqual(onceHandlerCalled, 0);
 
   // Keep the process alive for a while so that the second SIGINT can be caught.
-  const timeout = setTimeout(common.noop, 1000);
+  const timeout = setTimeout(() => {}, 1000);
 
   let afterHandlerCalled = 0;
 

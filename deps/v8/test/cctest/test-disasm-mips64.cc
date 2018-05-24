@@ -33,10 +33,12 @@
 #include "src/debug/debug.h"
 #include "src/disasm.h"
 #include "src/disassembler.h"
+#include "src/frames-inl.h"
 #include "src/macro-assembler.h"
 #include "test/cctest/cctest.h"
 
-using namespace v8::internal;
+namespace v8 {
+namespace internal {
 
 bool prev_instr_compact_branch = false;
 
@@ -142,14 +144,14 @@ if (failure) { \
 #define COMPARE_PC_JUMP(asm_, compare_string, target)                          \
   {                                                                            \
     int pc_offset = assm.pc_offset();                                          \
-    byte *progcounter = &buffer[pc_offset];                                    \
+    byte* progcounter = &buffer[pc_offset];                                    \
     char str_with_address[100];                                                \
     int instr_index = (target >> 2) & kImm26Mask;                              \
     snprintf(                                                                  \
         str_with_address, sizeof(str_with_address), "%s %p -> %p",             \
-        compare_string, reinterpret_cast<void *>(target),                      \
-        reinterpret_cast<void *>(((uint64_t)(progcounter + 1) & ~0xfffffff) |  \
-                                 (instr_index << 2)));                         \
+        compare_string, reinterpret_cast<void*>(target),                       \
+        reinterpret_cast<void*>(((uint64_t)(progcounter + 1) & ~0xFFFFFFF) |   \
+                                (instr_index << 2)));                          \
     assm.asm_;                                                                 \
     if (!DisassembleAndCompare(progcounter, str_with_address)) failure = true; \
   }
@@ -157,10 +159,9 @@ if (failure) { \
 #define GET_PC_REGION(pc_region)                                         \
   {                                                                      \
     int pc_offset = assm.pc_offset();                                    \
-    byte *progcounter = &buffer[pc_offset];                              \
-    pc_region = reinterpret_cast<int64_t>(progcounter + 4) & ~0xfffffff; \
+    byte* progcounter = &buffer[pc_offset];                              \
+    pc_region = reinterpret_cast<int64_t>(progcounter + 4) & ~0xFFFFFFF; \
   }
-
 
 TEST(Type0) {
   SET_UP();
@@ -711,26 +712,41 @@ TEST(Type0) {
   COMPARE(dsbh(s6, s7), "7c17b0a4       dsbh    s6, s7");
   COMPARE(dsbh(v0, v1), "7c0310a4       dsbh    v0, v1");
 
-  COMPARE(dins_(a0, a1, 31, 1), "7ca4ffc7       dins    a0, a1, 31, 1");
-  COMPARE(dins_(s6, s7, 30, 2), "7ef6ff87       dins    s6, s7, 30, 2");
-  COMPARE(dins_(v0, v1, 0, 32), "7c62f807       dins    v0, v1, 0, 32");
-
   COMPARE(dshd(a0, a1), "7c052164       dshd    a0, a1");
   COMPARE(dshd(s6, s7), "7c17b164       dshd    s6, s7");
   COMPARE(dshd(v0, v1), "7c031164       dshd    v0, v1");
 
-  COMPARE(ins_(a0, a1, 31, 1),
-          "7ca4ffc4       ins     a0, a1, 31, 1");
-  COMPARE(ins_(s6, s7, 30, 2),
-          "7ef6ff84       ins     s6, s7, 30, 2");
-  COMPARE(ins_(v0, v1, 0, 32),
-          "7c62f804       ins     v0, v1, 0, 32");
-  COMPARE(ext_(a0, a1, 31, 1),
-          "7ca407c0       ext     a0, a1, 31, 1");
-  COMPARE(ext_(s6, s7, 30, 2),
-          "7ef60f80       ext     s6, s7, 30, 2");
-  COMPARE(ext_(v0, v1, 0, 32),
-          "7c62f800       ext     v0, v1, 0, 32");
+  COMPARE(ext_(a0, a1, 31, 1), "7ca407c0       ext     a0, a1, 31, 1");
+  COMPARE(ext_(s6, s7, 30, 2), "7ef60f80       ext     s6, s7, 30, 2");
+  COMPARE(ext_(v0, v1, 0, 32), "7c62f800       ext     v0, v1, 0, 32");
+
+  COMPARE(dext_(a0, a1, 31, 1), "7ca407c3       dext    a0, a1, 31, 1");
+  COMPARE(dext_(s6, s7, 30, 2), "7ef60f83       dext    s6, s7, 30, 2");
+  COMPARE(dext_(v0, v1, 0, 32), "7c62f803       dext    v0, v1, 0, 32");
+
+  COMPARE(dextm_(a0, a1, 31, 33), "7ca407c1       dextm   a0, a1, 31, 33");
+  COMPARE(dextm_(s6, s7, 0, 33), "7ef60001       dextm   s6, s7, 0, 33");
+  COMPARE(dextm_(v0, v1, 0, 64), "7c62f801       dextm   v0, v1, 0, 64");
+
+  COMPARE(dextu_(a0, a1, 32, 1), "7ca40002       dextu   a0, a1, 32, 1");
+  COMPARE(dextu_(s6, s7, 63, 1), "7ef607c2       dextu   s6, s7, 63, 1");
+  COMPARE(dextu_(v0, v1, 32, 32), "7c62f802       dextu   v0, v1, 32, 32");
+
+  COMPARE(ins_(a0, a1, 31, 1), "7ca4ffc4       ins     a0, a1, 31, 1");
+  COMPARE(ins_(s6, s7, 30, 2), "7ef6ff84       ins     s6, s7, 30, 2");
+  COMPARE(ins_(v0, v1, 0, 32), "7c62f804       ins     v0, v1, 0, 32");
+
+  COMPARE(dins_(a0, a1, 31, 1), "7ca4ffc7       dins    a0, a1, 31, 1");
+  COMPARE(dins_(s6, s7, 30, 2), "7ef6ff87       dins    s6, s7, 30, 2");
+  COMPARE(dins_(v0, v1, 0, 32), "7c62f807       dins    v0, v1, 0, 32");
+
+  COMPARE(dinsm_(a0, a1, 31, 2), "7ca407c5       dinsm   a0, a1, 31, 2");
+  COMPARE(dinsm_(s6, s7, 0, 33), "7ef60005       dinsm   s6, s7, 0, 33");
+  COMPARE(dinsm_(v0, v1, 0, 64), "7c62f805       dinsm   v0, v1, 0, 64");
+
+  COMPARE(dinsu_(a0, a1, 32, 1), "7ca40006       dinsu   a0, a1, 32, 1");
+  COMPARE(dinsu_(s6, s7, 63, 1), "7ef6ffc6       dinsu   s6, s7, 63, 1");
+  COMPARE(dinsu_(v0, v1, 32, 32), "7c62f806       dinsu   v0, v1, 32, 32");
 
   COMPARE(add_s(f4, f6, f8), "46083100       add.s   f4, f6, f8");
   COMPARE(add_d(f12, f14, f16), "46307300       add.d   f12, f14, f16");
@@ -955,7 +971,7 @@ TEST(Type3) {
                            "60a48000       bnvc  a1, a0, -32768", -32768);
 
     COMPARE_PC_REL_COMPACT(beqzc(a0, 0), "d8800000       beqzc   a0, 0", 0);
-    COMPARE_PC_REL_COMPACT(beqzc(a0, 1048575),  // 0x0fffff ==  1048575.
+    COMPARE_PC_REL_COMPACT(beqzc(a0, 1048575),  // 0x0FFFFF ==  1048575.
                            "d88fffff       beqzc   a0, 1048575", 1048575);
     COMPARE_PC_REL_COMPACT(beqzc(a0, -1048576),  // 0x100000 == -1048576.
                            "d8900000       beqzc   a0, -1048576", -1048576);
@@ -1167,12 +1183,12 @@ TEST(Type3) {
 
   int64_t target = pc_region | 0x4;
   COMPARE_PC_JUMP(j(target), "08000001       j      ", target);
-  target = pc_region | 0xffffffc;
+  target = pc_region | 0xFFFFFFC;
   COMPARE_PC_JUMP(j(target), "0bffffff       j      ", target);
 
   target = pc_region | 0x4;
   COMPARE_PC_JUMP(jal(target), "0c000001       jal    ", target);
-  target = pc_region | 0xffffffc;
+  target = pc_region | 0xFFFFFFC;
   COMPARE_PC_JUMP(jal(target), "0fffffff       jal    ", target);
 
   VERIFY_RUN();
@@ -1291,17 +1307,27 @@ TEST(ctc1_cfc1_disasm) {
 
 TEST(madd_msub_maddf_msubf) {
   SET_UP();
-  if (kArchVariant == kMips64r2) {
-    COMPARE(madd_s(f4, f6, f8, f10), "4cca4120       madd.s  f4, f6, f8, f10");
-    COMPARE(madd_d(f4, f6, f8, f10), "4cca4121       madd.d  f4, f6, f8, f10");
-    COMPARE(msub_s(f4, f6, f8, f10), "4cca4128       msub.s  f4, f6, f8, f10");
-    COMPARE(msub_d(f4, f6, f8, f10), "4cca4129       msub.d  f4, f6, f8, f10");
-  }
   if (kArchVariant == kMips64r6) {
     COMPARE(maddf_s(f4, f8, f10), "460a4118       maddf.s  f4, f8, f10");
     COMPARE(maddf_d(f4, f8, f10), "462a4118       maddf.d  f4, f8, f10");
     COMPARE(msubf_s(f4, f8, f10), "460a4119       msubf.s  f4, f8, f10");
     COMPARE(msubf_d(f4, f8, f10), "462a4119       msubf.d  f4, f8, f10");
+  }
+  VERIFY_RUN();
+}
+
+TEST(atomic_load_store) {
+  SET_UP();
+  if (kArchVariant == kMips64r6) {
+    COMPARE(ll(v0, MemOperand(v1, -1)), "7c62ffb6       ll     v0, -1(v1)");
+    COMPARE(sc(v0, MemOperand(v1, 1)), "7c6200a6       sc     v0, 1(v1)");
+    COMPARE(lld(v0, MemOperand(v1, -1)), "7c62ffb7       lld     v0, -1(v1)");
+    COMPARE(scd(v0, MemOperand(v1, 1)), "7c6200a7       scd     v0, 1(v1)");
+  } else {
+    COMPARE(ll(v0, MemOperand(v1, -1)), "c062ffff       ll     v0, -1(v1)");
+    COMPARE(sc(v0, MemOperand(v1, 1)), "e0620001       sc     v0, 1(v1)");
+    COMPARE(lld(v0, MemOperand(v1, -1)), "d062ffff       lld     v0, -1(v1)");
+    COMPARE(scd(v0, MemOperand(v1, 1)), "f0620001       scd     v0, 1(v1)");
   }
   VERIFY_RUN();
 }
@@ -1317,14 +1343,16 @@ TEST(MSA_BRANCH) {
                        32767);
     COMPARE_MSA_BRANCH(bnz_d(w3, -32768), "47e38000       bnz.d  w3, -32768",
                        -32768);
-    COMPARE_MSA_BRANCH(bnz_v(w0, 0), "45e00000       bnz.v  w0, 0", 0);
+    COMPARE_MSA_BRANCH(bnz_v(w0, static_cast<int16_t>(0)),
+                       "45e00000       bnz.v  w0, 0", 0);
     COMPARE_MSA_BRANCH(bz_b(w0, 1), "47000001       bz.b  w0, 1", 1);
     COMPARE_MSA_BRANCH(bz_h(w1, -1), "4721ffff       bz.h  w1, -1", -1);
     COMPARE_MSA_BRANCH(bz_w(w2, 32767), "47427fff       bz.w  w2, 32767",
                        32767);
     COMPARE_MSA_BRANCH(bz_d(w3, -32768), "47638000       bz.d  w3, -32768",
                        -32768);
-    COMPARE_MSA_BRANCH(bz_v(w0, 0), "45600000       bz.v  w0, 0", 0);
+    COMPARE_MSA_BRANCH(bz_v(w0, static_cast<int16_t>(0)),
+                       "45600000       bz.v  w0, 0", 0);
   }
   VERIFY_RUN();
 }
@@ -1989,3 +2017,6 @@ TEST(MSA_BIT) {
   }
   VERIFY_RUN();
 }
+
+}  // namespace internal
+}  // namespace v8

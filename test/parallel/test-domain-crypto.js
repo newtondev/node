@@ -23,15 +23,13 @@
 
 const common = require('../common');
 
-if (!common.hasCrypto) {
+if (!common.hasCrypto)
   common.skip('node compiled without OpenSSL.');
-  return;
-}
 
 const crypto = require('crypto');
 
 // Pollution of global is intentional as part of test.
-common.globalCheck = false;
+common.allowGlobals(require('domain'));
 // See https://github.com/nodejs/node/commit/d1eff9ab
 global.domain = require('domain');
 

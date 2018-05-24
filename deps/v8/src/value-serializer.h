@@ -31,6 +31,7 @@ class JSValue;
 class Object;
 class Oddball;
 class Smi;
+class WasmMemoryObject;
 class WasmModuleObject;
 
 enum class SerializationTag : uint8_t;
@@ -43,8 +44,6 @@ enum class SerializationTag : uint8_t;
  */
 class ValueSerializer {
  public:
-  static uint32_t GetCurrentDataFormatVersion();
-
   ValueSerializer(Isolate* isolate, v8::ValueSerializer::Delegate* delegate);
   ~ValueSerializer();
 
@@ -127,7 +126,10 @@ class ValueSerializer {
   Maybe<bool> WriteJSArrayBuffer(Handle<JSArrayBuffer> array_buffer)
       WARN_UNUSED_RESULT;
   Maybe<bool> WriteJSArrayBufferView(JSArrayBufferView* array_buffer);
-  Maybe<bool> WriteWasmModule(Handle<JSObject> object) WARN_UNUSED_RESULT;
+  Maybe<bool> WriteWasmModule(Handle<WasmModuleObject> object)
+      WARN_UNUSED_RESULT;
+  Maybe<bool> WriteWasmMemory(Handle<WasmMemoryObject> object)
+      WARN_UNUSED_RESULT;
   Maybe<bool> WriteHostObject(Handle<JSObject> object) WARN_UNUSED_RESULT;
 
   /*
@@ -264,13 +266,15 @@ class ValueDeserializer {
   MaybeHandle<JSRegExp> ReadJSRegExp() WARN_UNUSED_RESULT;
   MaybeHandle<JSMap> ReadJSMap() WARN_UNUSED_RESULT;
   MaybeHandle<JSSet> ReadJSSet() WARN_UNUSED_RESULT;
-  MaybeHandle<JSArrayBuffer> ReadJSArrayBuffer() WARN_UNUSED_RESULT;
-  MaybeHandle<JSArrayBuffer> ReadTransferredJSArrayBuffer(bool is_shared)
+  MaybeHandle<JSArrayBuffer> ReadJSArrayBuffer(bool is_shared)
+      WARN_UNUSED_RESULT;
+  MaybeHandle<JSArrayBuffer> ReadTransferredJSArrayBuffer()
       WARN_UNUSED_RESULT;
   MaybeHandle<JSArrayBufferView> ReadJSArrayBufferView(
       Handle<JSArrayBuffer> buffer) WARN_UNUSED_RESULT;
   MaybeHandle<JSObject> ReadWasmModule() WARN_UNUSED_RESULT;
   MaybeHandle<JSObject> ReadWasmModuleTransfer() WARN_UNUSED_RESULT;
+  MaybeHandle<WasmMemoryObject> ReadWasmMemory() WARN_UNUSED_RESULT;
   MaybeHandle<JSObject> ReadHostObject() WARN_UNUSED_RESULT;
 
   /*
@@ -297,7 +301,7 @@ class ValueDeserializer {
 
   // Always global handles.
   Handle<FixedArray> id_map_;
-  MaybeHandle<SeededNumberDictionary> array_buffer_transfer_map_;
+  MaybeHandle<SimpleNumberDictionary> array_buffer_transfer_map_;
 
   DISALLOW_COPY_AND_ASSIGN(ValueDeserializer);
 };

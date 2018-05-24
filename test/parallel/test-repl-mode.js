@@ -1,10 +1,8 @@
 'use strict';
-const common = require('../common');
+require('../common');
 const assert = require('assert');
 const Stream = require('stream');
 const repl = require('repl');
-
-common.globalCheck = false;
 
 const tests = [
   testSloppyMode,
@@ -32,7 +30,7 @@ function testStrictMode() {
 
   cli.input.emit('data', 'x = 3\n');
   assert.ok(/ReferenceError: x is not defined/.test(
-      cli.output.accumulator.join('')));
+    cli.output.accumulator.join('')));
   cli.output.accumulator.length = 0;
 
   cli.input.emit('data', 'let y = 3\n');
@@ -52,7 +50,7 @@ function testAutoMode() {
 
 function initRepl(mode) {
   const input = new Stream();
-  input.write = input.pause = input.resume = common.noop;
+  input.write = input.pause = input.resume = () => {};
   input.readable = true;
 
   const output = new Stream();

@@ -1,17 +1,17 @@
 'use strict';
 
 const common = require('../common');
-const assert = require('assert');
 const { URL, URLSearchParams } = require('url');
 const { test, assert_array_equals, assert_unreached } =
   require('../common/wpt');
 
-/* eslint-disable */
-var i;  // Strict mode fix for WPT.
-/* WPT Refs:
+/* The following tests are copied from WPT. Modifications to them should be
+   upstreamed first. Refs:
    https://github.com/w3c/web-platform-tests/blob/a8b2b1e/url/urlsearchparams-foreach.html
    License: http://www.w3.org/Consortium/Legal/2008/04-testsuite-copyright.html
 */
+/* eslint-disable */
+var i;  // Strict mode fix for WPT.
 test(function() {
     var params = new URLSearchParams('a=1&b=2&c=3');
     var keys = [];
@@ -49,11 +49,11 @@ test(function() {
 // Tests below are not from WPT.
 {
   const params = new URLSearchParams();
-  assert.throws(() => {
+  common.expectsError(() => {
     params.forEach.call(undefined);
-  }, common.expectsError({
+  }, {
     code: 'ERR_INVALID_THIS',
     type: TypeError,
     message: 'Value of "this" must be of type URLSearchParams'
-  }));
+  });
 }

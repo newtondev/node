@@ -106,9 +106,9 @@ TEST(StubCacheSecondaryOffset) {
 
 namespace {
 
-Handle<Code> CreateCodeWithFlags(Code::Flags flags) {
+Handle<Code> CreateCodeOfKind(Code::Kind kind) {
   Isolate* isolate(CcTest::InitIsolateOnce());
-  CodeAssemblerTester data(isolate, flags);
+  CodeAssemblerTester data(isolate, kind);
   CodeStubAssembler m(data.state());
   m.Return(m.UndefinedConstant());
   return data.GenerateCodeCloseAndEscape();
@@ -124,8 +124,7 @@ TEST(TryProbeStubCache) {
   CodeAssemblerTester data(isolate, kNumParams);
   AccessorAssembler m(data.state());
 
-  Code::Kind ic_kind = Code::LOAD_IC;
-  StubCache stub_cache(isolate, ic_kind);
+  StubCache stub_cache(isolate);
   stub_cache.Clear();
 
   {
@@ -140,18 +139,18 @@ TEST(TryProbeStubCache) {
 
     m.TryProbeStubCache(&stub_cache, receiver, name, &if_handler, &var_handler,
                         &if_miss);
-    m.Bind(&if_handler);
+    m.BIND(&if_handler);
     m.Branch(m.WordEqual(expected_handler, var_handler.value()), &passed,
              &failed);
 
-    m.Bind(&if_miss);
+    m.BIND(&if_miss);
     m.Branch(m.WordEqual(expected_handler, m.IntPtrConstant(0)), &passed,
              &failed);
 
-    m.Bind(&passed);
+    m.BIND(&passed);
     m.Return(m.BooleanConstant(true));
 
-    m.Bind(&failed);
+    m.BIND(&failed);
     m.Return(m.BooleanConstant(false));
   }
 
@@ -204,8 +203,7 @@ TEST(TryProbeStubCache) {
 
   // Generate some number of handlers.
   for (int i = 0; i < 30; i++) {
-    Code::Flags flags = Code::ComputeHandlerFlags(ic_kind);
-    handlers.push_back(CreateCodeWithFlags(flags));
+    handlers.push_back(CreateCodeOfKind(Code::STUB));
   }
 
   // Ensure that GC does happen because from now on we are going to fill our

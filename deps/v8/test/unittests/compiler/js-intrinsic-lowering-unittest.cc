@@ -37,8 +37,7 @@ class JSIntrinsicLoweringTest : public GraphTest {
                     &machine);
     // TODO(titzer): mock the GraphReducer here for better unit testing.
     GraphReducer graph_reducer(zone(), graph());
-    JSIntrinsicLowering reducer(&graph_reducer, &jsgraph,
-                                JSIntrinsicLowering::kDeoptimizationEnabled);
+    JSIntrinsicLowering reducer(&graph_reducer, &jsgraph);
     return reducer.Reduce(node);
   }
 
@@ -89,7 +88,7 @@ TEST_F(JSIntrinsicLoweringTest, InlineIsArray) {
           IsNumberEqual(IsLoadField(AccessBuilder::ForMapInstanceType(),
                                     IsLoadField(AccessBuilder::ForMap(), input,
                                                 effect, CaptureEq(&if_false)),
-                                    effect, _),
+                                    _, _),
                         IsNumberConstant(JS_ARRAY_TYPE)),
           IsMerge(IsIfTrue(AllOf(CaptureEq(&branch),
                                  IsBranch(IsObjectIsSmi(input), control))),
@@ -120,7 +119,7 @@ TEST_F(JSIntrinsicLoweringTest, InlineIsTypedArray) {
           IsNumberEqual(IsLoadField(AccessBuilder::ForMapInstanceType(),
                                     IsLoadField(AccessBuilder::ForMap(), input,
                                                 effect, CaptureEq(&if_false)),
-                                    effect, _),
+                                    _, _),
                         IsNumberConstant(JS_TYPED_ARRAY_TYPE)),
           IsMerge(IsIfTrue(AllOf(CaptureEq(&branch),
                                  IsBranch(IsObjectIsSmi(input), control))),
@@ -142,6 +141,23 @@ TEST_F(JSIntrinsicLoweringTest, InlineIsJSReceiver) {
       context, effect, control));
   ASSERT_TRUE(r.Changed());
   EXPECT_THAT(r.replacement(), IsObjectIsReceiver(input));
+}
+
+// -----------------------------------------------------------------------------
+// %_CreateJSGeneratorObject
+
+TEST_F(JSIntrinsicLoweringTest, InlineCreateJSGeneratorObject) {
+  Node* const function = Parameter(0);
+  Node* const receiver = Parameter(1);
+  Node* const context = Parameter(2);
+  Node* const effect = graph()->start();
+  Node* const control = graph()->start();
+  Reduction const r = Reduce(graph()->NewNode(
+      javascript()->CallRuntime(Runtime::kInlineCreateJSGeneratorObject, 2),
+      function, receiver, context, effect, control));
+  ASSERT_TRUE(r.Changed());
+  EXPECT_EQ(IrOpcode::kJSCreateGeneratorObject,
+            r.replacement()->op()->opcode());
 }
 
 }  // namespace compiler

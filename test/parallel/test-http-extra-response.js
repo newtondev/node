@@ -32,7 +32,7 @@ const net = require('net');
 const body = 'hello world\r\n';
 const fullResponse =
     'HTTP/1.1 500 Internal Server Error\r\n' +
-    'Content-Length: ' + body.length + '\r\n' +
+    `Content-Length: ${body.length}\r\n` +
     'Content-Type: text/plain\r\n' +
     'Date: Fri + 18 Feb 2011 06:22:45 GMT\r\n' +
     'Host: 10.20.149.2\r\n' +
@@ -51,7 +51,6 @@ const server = net.createServer(function(socket) {
 
     if (postBody.includes('\r\n')) {
       socket.write(fullResponse);
-      // omg, I wrote the response twice, what a terrible HTTP server I am.
       socket.end(fullResponse);
     }
   });

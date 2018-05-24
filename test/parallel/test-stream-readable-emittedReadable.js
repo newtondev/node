@@ -4,40 +4,43 @@ const assert = require('assert');
 const Readable = require('stream').Readable;
 
 const readable = new Readable({
-  read: common.noop
+  read: () => {}
 });
 
 // Initialized to false.
 assert.strictEqual(readable._readableState.emittedReadable, false);
 
+const expected = [Buffer.from('foobar'), Buffer.from('quo'), null];
 readable.on('readable', common.mustCall(() => {
   // emittedReadable should be true when the readable event is emitted
   assert.strictEqual(readable._readableState.emittedReadable, true);
-  readable.read();
+  assert.deepStrictEqual(readable.read(), expected.shift());
   // emittedReadable is reset to false during read()
   assert.strictEqual(readable._readableState.emittedReadable, false);
-}, 4));
+}, 3));
 
 // When the first readable listener is just attached,
 // emittedReadable should be false
 assert.strictEqual(readable._readableState.emittedReadable, false);
 
-// Each one of these should trigger a readable event.
+// These trigger a single 'readable', as things are batched up
 process.nextTick(common.mustCall(() => {
   readable.push('foo');
 }));
 process.nextTick(common.mustCall(() => {
   readable.push('bar');
 }));
-process.nextTick(common.mustCall(() => {
+
+// these triggers two readable events
+setImmediate(common.mustCall(() => {
   readable.push('quo');
-}));
-process.nextTick(common.mustCall(() => {
-  readable.push(null);
+  process.nextTick(common.mustCall(() => {
+    readable.push(null);
+  }));
 }));
 
 const noRead = new Readable({
-  read: common.noop
+  read: () => {}
 });
 
 noRead.on('readable', common.mustCall(() => {
@@ -52,7 +55,7 @@ noRead.push('foo');
 noRead.push(null);
 
 const flowing = new Readable({
-  read: common.noop
+  read: () => {}
 });
 
 flowing.on('data', common.mustCall(() => {

@@ -34,22 +34,22 @@ common.hijackStdout(function(data) {
 common.hijackStderr(common.mustNotCall('stderr.write must not be called'));
 
 const tests = [
-  {input: 'foo', output: 'foo'},
-  {input: undefined, output: 'undefined'},
-  {input: null, output: 'null'},
-  {input: false, output: 'false'},
-  {input: 42, output: '42'},
-  {input: function() {}, output: '[Function: input]'},
-  {input: parseInt('not a number', 10), output: 'NaN'},
-  {input: {answer: 42}, output: '{ answer: 42 }'},
-  {input: [1, 2, 3], output: '[ 1, 2, 3 ]'}
+  { input: 'foo', output: 'foo' },
+  { input: undefined, output: 'undefined' },
+  { input: null, output: 'null' },
+  { input: false, output: 'false' },
+  { input: 42, output: '42' },
+  { input: function() {}, output: '[Function: input]' },
+  { input: parseInt('not a number', 10), output: 'NaN' },
+  { input: { answer: 42 }, output: '{ answer: 42 }' },
+  { input: [1, 2, 3], output: '[ 1, 2, 3 ]' }
 ];
 
 // test util.log()
+const re = /[0-9]{1,2} [A-Z][a-z]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} - (.+)$/;
 tests.forEach(function(test) {
   util.log(test.input);
   const result = strings.shift().trim();
-  const re = (/[0-9]{1,2} [A-Z][a-z]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} - (.+)$/);
   const match = re.exec(result);
   assert.ok(match);
   assert.strictEqual(match[1], test.output);

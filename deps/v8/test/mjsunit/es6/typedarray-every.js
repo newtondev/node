@@ -132,7 +132,6 @@ function TestTypedArrayForEach(constructor) {
   });
   assertEquals(2, count);
   assertTrue(!!buffer);
-  assertEquals("ArrayBuffer", %_ClassOf(buffer));
   assertSame(buffer, a.buffer);
 
   // The %TypedArray%.every() method should not work when
@@ -159,6 +158,11 @@ function TestTypedArrayForEach(constructor) {
   assertEquals(Array.prototype.every.call(a,
       function(elt) { x += elt; return true; }), true);
   assertEquals(x, 4);
+
+  // Detached Operation
+  var array = new constructor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  %ArrayBufferNeuter(array.buffer);
+  assertThrows(() => array.every(() => true), TypeError);
 }
 
 for (i = 0; i < typedArrayConstructors.length; i++) {

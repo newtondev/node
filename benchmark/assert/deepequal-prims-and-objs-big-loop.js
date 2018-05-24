@@ -14,36 +14,29 @@ const primValues = {
 };
 
 const bench = common.createBenchmark(main, {
-  prim: Object.keys(primValues),
+  primitive: Object.keys(primValues),
   n: [1e6],
-  method: ['strict', 'nonstrict']
+  method: [
+    'deepEqual',
+    'deepStrictEqual',
+    'notDeepEqual',
+    'notDeepStrictEqual'
+  ]
 });
 
-function main(conf) {
-  const prim = primValues[conf.prim];
-  const n = +conf.n;
+function main({ n, primitive, method }) {
+  const prim = primValues[primitive];
   const actual = prim;
   const expected = prim;
-  var i;
+  const expectedWrong = 'b';
 
-  // Creates new array to avoid loop invariant code motion
-  switch (conf.method) {
-    case 'strict':
-      bench.start();
-      for (i = 0; i < n; ++i) {
-        // eslint-disable-next-line no-restricted-properties
-        assert.deepEqual([actual], [expected]);
-      }
-      bench.end(n);
-      break;
-    case 'nonstrict':
-      bench.start();
-      for (i = 0; i < n; ++i) {
-        assert.deepStrictEqual([actual], [expected]);
-      }
-      bench.end(n);
-      break;
-    default:
-      throw new Error('Unsupported method');
+  // eslint-disable-next-line no-restricted-properties
+  const fn = method !== '' ? assert[method] : assert.deepEqual;
+  const value2 = method.includes('not') ? expectedWrong : expected;
+
+  bench.start();
+  for (var i = 0; i < n; ++i) {
+    fn([actual], [value2]);
   }
+  bench.end(n);
 }

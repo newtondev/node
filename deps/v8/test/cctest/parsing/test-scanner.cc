@@ -12,7 +12,8 @@
 #include "src/unicode-cache.h"
 #include "test/cctest/cctest.h"
 
-using namespace v8::internal;
+namespace v8 {
+namespace internal {
 
 namespace {
 
@@ -39,7 +40,7 @@ ScannerTestHelper make_scanner(const char* src) {
   helper.stream = ScannerStream::ForTesting(src);
   helper.scanner =
       std::unique_ptr<Scanner>(new Scanner(helper.unicode_cache.get()));
-  helper.scanner->Initialize(helper.stream.get());
+  helper.scanner->Initialize(helper.stream.get(), false);
   return helper;
 }
 
@@ -129,3 +130,6 @@ TEST(ContextualKeywordTokens) {
   CHECK_TOK(Token::IDENTIFIER, scanner->current_token());
   CHECK_TOK(Token::UNINITIALIZED, scanner->current_contextual_token());
 }
+
+}  // namespace internal
+}  // namespace v8

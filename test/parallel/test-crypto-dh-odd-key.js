@@ -21,12 +21,10 @@
 
 'use strict';
 const common = require('../common');
-const assert = require('assert');
-
-if (!common.hasCrypto) {
+if (!common.hasCrypto)
   common.skip('missing crypto');
-  return;
-}
+
+const assert = require('assert');
 const crypto = require('crypto');
 
 function test() {
@@ -39,7 +37,7 @@ function test() {
 
 // FIPS requires a length of at least 1024
 if (!common.hasFipsCrypto) {
-  assert.doesNotThrow(function() { test(); });
+  test();
 } else {
   assert.throws(function() { test(); }, /key size too small/);
 }

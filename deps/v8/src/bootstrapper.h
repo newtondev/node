@@ -6,57 +6,32 @@
 #define V8_BOOTSTRAPPER_H_
 
 #include "src/factory.h"
+#include "src/objects/shared-function-info.h"
 #include "src/snapshot/natives.h"
+#include "src/visitors.h"
 
 namespace v8 {
 namespace internal {
 
 // A SourceCodeCache uses a FixedArray to store pairs of
 // (OneByteString*, JSFunction*), mapping names of native code files
-// (runtime.js, etc.) to precompiled functions. Instead of mapping
+// (array.js, etc.) to precompiled functions. Instead of mapping
 // names to functions it might make sense to let the JS2C tool
 // generate an index for each native JS file.
 class SourceCodeCache final BASE_EMBEDDED {
  public:
-  explicit SourceCodeCache(Script::Type type): type_(type), cache_(NULL) { }
+  explicit SourceCodeCache(Script::Type type) : type_(type), cache_(nullptr) {}
 
-  void Initialize(Isolate* isolate, bool create_heap_objects) {
-    cache_ = create_heap_objects ? isolate->heap()->empty_fixed_array() : NULL;
+  void Initialize(Isolate* isolate, bool create_heap_objects);
+
+  void Iterate(RootVisitor* v) {
+    v->VisitRootPointer(Root::kExtensions, nullptr,
+                        bit_cast<Object**, FixedArray**>(&cache_));
   }
 
-  void Iterate(ObjectVisitor* v) {
-    v->VisitPointer(bit_cast<Object**, FixedArray**>(&cache_));
-  }
+  bool Lookup(Vector<const char> name, Handle<SharedFunctionInfo>* handle);
 
-  bool Lookup(Vector<const char> name, Handle<SharedFunctionInfo>* handle) {
-    for (int i = 0; i < cache_->length(); i+=2) {
-      SeqOneByteString* str = SeqOneByteString::cast(cache_->get(i));
-      if (str->IsUtf8EqualTo(name)) {
-        *handle = Handle<SharedFunctionInfo>(
-            SharedFunctionInfo::cast(cache_->get(i + 1)));
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void Add(Vector<const char> name, Handle<SharedFunctionInfo> shared) {
-    Isolate* isolate = shared->GetIsolate();
-    Factory* factory = isolate->factory();
-    HandleScope scope(isolate);
-    int length = cache_->length();
-    Handle<FixedArray> new_array = factory->NewFixedArray(length + 2, TENURED);
-    cache_->CopyTo(0, *new_array, 0, cache_->length());
-    cache_ = *new_array;
-    Handle<String> str =
-        factory
-            ->NewStringFromOneByte(Vector<const uint8_t>::cast(name), TENURED)
-            .ToHandleChecked();
-    DCHECK(!str.is_null());
-    cache_->set(length, *str);
-    cache_->set(length + 1, *shared);
-    Script::cast(shared->script())->set_type(type_);
-  }
+  void Add(Vector<const char> name, Handle<SharedFunctionInfo> shared);
 
  private:
   Script::Type type_;
@@ -94,7 +69,7 @@ class Bootstrapper final {
   void DetachGlobal(Handle<Context> env);
 
   // Traverses the pointers for memory management.
-  void Iterate(ObjectVisitor* v);
+  void Iterate(RootVisitor* v);
 
   // Accessor for the native scripts source code.
   Handle<String> GetNativeSource(NativeType type, int index);

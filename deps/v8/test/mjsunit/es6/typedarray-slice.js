@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// Flags: --allow-natives-syntax
+
 var typedArrayConstructors = [
   Uint8Array,
   Int8Array,
@@ -67,6 +69,18 @@ for (var constructor of typedArrayConstructors) {
   assertEquals(3, slice[1]);
   assertTrue(slice instanceof constructor);
 
+  // Detached Operation
+  var tmp = {
+    [Symbol.toPrimitive]() {
+      assertUnreachable("Parameter should not be processed when " +
+                        "array.[[ViewedArrayBuffer]] is neutered.");
+      return 0;
+    }
+  };
+  var array = new constructor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  %ArrayBufferNeuter(array.buffer);
+  assertThrows(() => array.slice(tmp, tmp), TypeError);
+
   // Check that the species array must be a typed array
   class MyTypedArray extends constructor {
     static get[Symbol.species]() {
@@ -110,7 +124,7 @@ function testCustomSubclass(superClass, speciesClass) {
   // Custom constructor with shared buffer.
   exampleArray =  new Array(64).fill(0).map((v,i) => i);
   let filledBuffer = new Uint8Array(exampleArray).buffer;
-  // Create a view for the begining of the buffer.
+  // Create a view for the beginning of the buffer.
   let customArray2 = new superClass(filledBuffer, 0, 3);
   customArray2.constructor = {
     [Symbol.species]: function(length) {

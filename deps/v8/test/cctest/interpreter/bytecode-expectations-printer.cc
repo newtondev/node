@@ -104,7 +104,6 @@ i::Handle<i::BytecodeArray>
 BytecodeExpectationsPrinter::GetBytecodeArrayForModule(
     v8::Local<v8::Module> module) const {
   i::Handle<i::Module> i_module = v8::Utils::OpenHandle(*module);
-  CHECK(!i_module->instantiated());
   return i::handle(SharedFunctionInfo::cast(i_module->code())->bytecode_array(),
                    i_isolate());
 }
@@ -160,9 +159,7 @@ void BytecodeExpectationsPrinter::PrintBytecodeOperand(
     Register register_value = bytecode_iterator.GetRegisterOperand(op_index);
     stream << 'R';
     if (op_size != OperandSize::kByte) stream << size_tag;
-    if (register_value.is_new_target()) {
-      stream << "(new_target)";
-    } else if (register_value.is_current_context()) {
+    if (register_value.is_current_context()) {
       stream << "(context)";
     } else if (register_value.is_function_closure()) {
       stream << "(closure)";
@@ -184,12 +181,7 @@ void BytecodeExpectationsPrinter::PrintBytecodeOperand(
         break;
       case OperandType::kIdx: {
         stream << 'U' << size_tag << '(';
-        uint32_t idx = bytecode_iterator.GetIndexOperand(op_index);
-        if (bytecode == Bytecode::kCallJSRuntime && op_index == 0) {
-          stream << "%" << NameForNativeContextIntrinsicIndex(idx);
-        } else {
-          stream << idx;
-        }
+        stream << bytecode_iterator.GetIndexOperand(op_index);
         break;
       }
       case OperandType::kUImm:
@@ -216,6 +208,12 @@ void BytecodeExpectationsPrinter::PrintBytecodeOperand(
         Runtime::FunctionId id =
             bytecode_iterator.GetIntrinsicIdOperand(op_index);
         stream << "Runtime::k" << i::Runtime::FunctionForId(id)->name;
+        break;
+      }
+      case OperandType::kNativeContextIndex: {
+        stream << 'U' << size_tag << '(';
+        uint32_t idx = bytecode_iterator.GetNativeContextIndexOperand(op_index);
+        stream << "%" << NameForNativeContextIntrinsicIndex(idx);
         break;
       }
       default:
@@ -308,7 +306,7 @@ void BytecodeExpectationsPrinter::PrintBytecodeSequence(
          << "\nbytecodes: [\n";
 
   SourcePositionTableIterator source_iterator(
-      bytecode_array->source_position_table());
+      bytecode_array->SourcePositionTable());
   BytecodeArrayIterator bytecode_iterator(bytecode_array);
   for (; !bytecode_iterator.done(); bytecode_iterator.Advance()) {
     stream << kIndent;
@@ -350,11 +348,11 @@ void BytecodeExpectationsPrinter::PrintCodeSnippet(
 void BytecodeExpectationsPrinter::PrintHandlers(
     std::ostream& stream, i::Handle<i::BytecodeArray> bytecode_array) const {
   stream << "handlers: [\n";
-  HandlerTable* table = HandlerTable::cast(bytecode_array->handler_table());
-  for (int i = 0, num_entries = table->NumberOfRangeEntries(); i < num_entries;
+  HandlerTable table(*bytecode_array);
+  for (int i = 0, num_entries = table.NumberOfRangeEntries(); i < num_entries;
        ++i) {
-    stream << "  [" << table->GetRangeStart(i) << ", " << table->GetRangeEnd(i)
-           << ", " << table->GetRangeHandler(i) << "],\n";
+    stream << "  [" << table.GetRangeStart(i) << ", " << table.GetRangeEnd(i)
+           << ", " << table.GetRangeHandler(i) << "],\n";
   }
   stream << "]\n";
 }

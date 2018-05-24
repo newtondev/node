@@ -21,9 +21,8 @@
 
 'use strict';
 require('../common');
-const Readable = require('stream').Readable;
-const Writable = require('stream').Writable;
 const assert = require('assert');
+const { Readable, Writable } = require('stream');
 
 const EE = require('events').EventEmitter;
 
@@ -49,7 +48,7 @@ stream.on('end', function() {
 
 source.on('data', function(chunk) {
   const ret = stream.push(chunk);
-  console.error('data', stream._readableState.length);
+  console.error('data', stream.readableLength);
   if (!ret)
     readStop();
 });
@@ -90,7 +89,7 @@ const expectWritten =
     'asdfgasdfgasdfgasdfg' ];
 
 writer._write = function(chunk, encoding, cb) {
-  console.error('WRITE %s', chunk);
+  console.error(`WRITE ${chunk}`);
   written.push(chunk);
   process.nextTick(cb);
 };

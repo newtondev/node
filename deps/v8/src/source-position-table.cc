@@ -4,7 +4,6 @@
 
 #include "src/source-position-table.h"
 
-#include "src/log.h"
 #include "src/objects-inl.h"
 #include "src/objects.h"
 
@@ -39,7 +38,7 @@ void AddAndSetEntry(PositionTableEntry& value,
   value.is_statement = other.is_statement;
 }
 
-// Helper: Substract the offsets from 'other' from 'value'.
+// Helper: Subtract the offsets from 'other' from 'value'.
 void SubtractFromEntry(PositionTableEntry& value,
                        const PositionTableEntry& other) {
   value.code_offset -= other.code_offset;
@@ -48,7 +47,7 @@ void SubtractFromEntry(PositionTableEntry& value,
 
 // Helper: Encode an integer.
 template <typename T>
-void EncodeInt(ZoneVector<byte>& bytes, T value) {
+void EncodeInt(std::vector<byte>& bytes, T value) {
   // Zig-zag encoding.
   static const int kShift = sizeof(T) * kBitsPerByte - 1;
   value = ((value << 1) ^ (value >> kShift));
@@ -65,9 +64,9 @@ void EncodeInt(ZoneVector<byte>& bytes, T value) {
 }
 
 // Encode a PositionTableEntry.
-void EncodeEntry(ZoneVector<byte>& bytes, const PositionTableEntry& entry) {
+void EncodeEntry(std::vector<byte>& bytes, const PositionTableEntry& entry) {
   // We only accept ascending code offsets.
-  DCHECK(entry.code_offset >= 0);
+  DCHECK_GE(entry.code_offset, 0);
   // Since code_offset is not negative, we use sign to encode is_statement.
   EncodeInt(bytes,
             entry.is_statement ? entry.code_offset : -entry.code_offset - 1);
@@ -109,14 +108,8 @@ void DecodeEntry(ByteArray* bytes, int* index, PositionTableEntry* entry) {
 }  // namespace
 
 SourcePositionTableBuilder::SourcePositionTableBuilder(
-    Zone* zone, SourcePositionTableBuilder::RecordingMode mode)
-    : mode_(mode),
-      bytes_(zone),
-#ifdef ENABLE_SLOW_DCHECKS
-      raw_entries_(zone),
-#endif
-      previous_() {
-}
+    SourcePositionTableBuilder::RecordingMode mode)
+    : mode_(mode), previous_() {}
 
 void SourcePositionTableBuilder::AddPosition(size_t code_offset,
                                              SourcePosition source_position,
@@ -138,7 +131,7 @@ void SourcePositionTableBuilder::AddEntry(const PositionTableEntry& entry) {
 }
 
 Handle<ByteArray> SourcePositionTableBuilder::ToSourcePositionTable(
-    Isolate* isolate, Handle<AbstractCode> code) {
+    Isolate* isolate) {
   if (bytes_.empty()) return isolate->factory()->empty_byte_array();
   DCHECK(!Omit());
 
@@ -146,8 +139,6 @@ Handle<ByteArray> SourcePositionTableBuilder::ToSourcePositionTable(
       static_cast<int>(bytes_.size()), TENURED);
 
   MemCopy(table->GetDataStartAddress(), &*bytes_.begin(), bytes_.size());
-
-  LOG_CODE_EVENT(isolate, CodeLinePosInfoRecordEvent(*code, *table));
 
 #ifdef ENABLE_SLOW_DCHECKS
   // Brute force testing: Record all positions and decode
@@ -168,18 +159,27 @@ Handle<ByteArray> SourcePositionTableBuilder::ToSourcePositionTable(
 }
 
 SourcePositionTableIterator::SourcePositionTableIterator(ByteArray* byte_array)
-    : table_(byte_array), index_(0), current_() {
+    : raw_table_(byte_array) {
   Advance();
 }
 
+SourcePositionTableIterator::SourcePositionTableIterator(
+    Handle<ByteArray> byte_array)
+    : table_(byte_array) {
+  Advance();
+  // We can enable allocation because we keep the table in a handle.
+  no_gc.Release();
+}
+
 void SourcePositionTableIterator::Advance() {
+  ByteArray* table = raw_table_ ? raw_table_ : *table_;
   DCHECK(!done());
-  DCHECK(index_ >= 0 && index_ <= table_->length());
-  if (index_ >= table_->length()) {
+  DCHECK(index_ >= 0 && index_ <= table->length());
+  if (index_ >= table->length()) {
     index_ = kDone;
   } else {
     PositionTableEntry tmp;
-    DecodeEntry(table_, &index_, &tmp);
+    DecodeEntry(table, &index_, &tmp);
     AddAndSetEntry(current_, tmp);
   }
 }

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_SSE_INSTR_H_
-#define V8_SSE_INSTR_H_
+#ifndef V8_X64_SSE_INSTR_H_
+#define V8_X64_SSE_INSTR_H_
 
 #define SSE2_INSTRUCTION_LIST(V) \
   V(packsswb, 66, 0F, 63)        \
@@ -41,6 +41,8 @@
   V(psubsw, 66, 0F, E9)          \
   V(psubusb, 66, 0F, D8)         \
   V(psubusw, 66, 0F, D9)         \
+  V(pand, 66, 0F, DB)            \
+  V(por, 66, 0F, EB)             \
   V(pxor, 66, 0F, EF)            \
   V(cvtps2dq, 66, 0F, 5B)
 
@@ -48,6 +50,8 @@
   V(pabsb, 66, 0F, 38, 1C)        \
   V(pabsw, 66, 0F, 38, 1D)        \
   V(pabsd, 66, 0F, 38, 1E)        \
+  V(phaddd, 66, 0F, 38, 02)       \
+  V(phaddw, 66, 0F, 38, 01)       \
   V(pshufb, 66, 0F, 38, 00)       \
   V(psignb, 66, 0F, 38, 08)       \
   V(psignw, 66, 0F, 38, 09)       \
@@ -66,4 +70,4 @@
   V(pmulld, 66, 0F, 38, 40)      \
   V(ptest, 66, 0F, 38, 17)
 
-#endif  // V8_SSE_INSTR_H_
+#endif  // V8_X64_SSE_INSTR_H_

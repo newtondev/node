@@ -25,7 +25,7 @@ const assert = require('assert');
 const fs = require('fs');
 const join = require('path').join;
 
-const filename = join(common.tmpDir, 'append.txt');
+const tmpdir = require('../common/tmpdir');
 
 const currentFileData = 'ABCD';
 
@@ -40,40 +40,68 @@ const s = '南越国是前203年至前111年存在于岭南地区的一个国家
 
 let ncallbacks = 0;
 
-common.refreshTmpDir();
+tmpdir.refresh();
 
-// test that empty file will be created and have content added
-fs.appendFile(filename, s, function(e) {
-  assert.ifError(e);
+const throwNextTick = (e) => { process.nextTick(() => { throw e; }); };
 
-  ncallbacks++;
+// test that empty file will be created and have content added (callback API)
+{
+  const filename = join(tmpdir.path, 'append.txt');
 
-  fs.readFile(filename, function(e, buffer) {
+  fs.appendFile(filename, s, common.mustCall(function(e) {
     assert.ifError(e);
-    ncallbacks++;
-    assert.strictEqual(Buffer.byteLength(s), buffer.length);
-  });
-});
 
-// test that appends data to a non empty file
-const filename2 = join(common.tmpDir, 'append2.txt');
-fs.writeFileSync(filename2, currentFileData);
+    fs.readFile(filename, common.mustCall(function(e, buffer) {
+      assert.ifError(e);
+      assert.strictEqual(Buffer.byteLength(s), buffer.length);
+    }));
+  }));
+}
 
-fs.appendFile(filename2, s, function(e) {
-  assert.ifError(e);
+// test that empty file will be created and have content added (promise API)
+{
+  const filename = join(tmpdir.path, 'append-promise.txt');
 
-  ncallbacks++;
+  fs.promises.appendFile(filename, s)
+    .then(common.mustCall(() => fs.promises.readFile(filename)))
+    .then((buffer) => {
+      assert.strictEqual(Buffer.byteLength(s), buffer.length);
+    })
+    .catch(throwNextTick);
+}
 
-  fs.readFile(filename2, function(e, buffer) {
+// test that appends data to a non-empty file (callback API)
+{
+  const filename = join(tmpdir.path, 'append-non-empty.txt');
+  fs.writeFileSync(filename, currentFileData);
+
+  fs.appendFile(filename, s, common.mustCall(function(e) {
     assert.ifError(e);
-    ncallbacks++;
-    assert.strictEqual(Buffer.byteLength(s) + currentFileData.length,
-                       buffer.length);
-  });
-});
+
+    fs.readFile(filename, common.mustCall(function(e, buffer) {
+      assert.ifError(e);
+      assert.strictEqual(Buffer.byteLength(s) + currentFileData.length,
+                         buffer.length);
+    }));
+  }));
+}
+
+// test that appends data to a non-empty file (promise API)
+{
+  const filename = join(tmpdir.path, 'append-non-empty-promise.txt');
+  fs.writeFileSync(filename, currentFileData);
+
+  fs.promises.appendFile(filename, s)
+    .then(common.mustCall(() => fs.promises.readFile(filename)))
+    .then((buffer) => {
+      assert.strictEqual(Buffer.byteLength(s) + currentFileData.length,
+                         buffer.length);
+    })
+    .catch(throwNextTick);
+}
 
 // test that appendFile accepts buffers
-const filename3 = join(common.tmpDir, 'append3.txt');
+const filename3 = join(tmpdir.path, 'append3.txt');
 fs.writeFileSync(filename3, currentFileData);
 
 const buf = Buffer.from(s, 'utf8');
@@ -91,7 +119,7 @@ fs.appendFile(filename3, buf, function(e) {
 });
 
 // test that appendFile accepts numbers.
-const filename4 = join(common.tmpDir, 'append4.txt');
+const filename4 = join(tmpdir.path, 'append4.txt');
 fs.writeFileSync(filename4, currentFileData);
 
 const m = 0o600;
@@ -115,7 +143,7 @@ fs.appendFile(filename4, n, { mode: m }, function(e) {
 });
 
 // test that appendFile accepts file descriptors
-const filename5 = join(common.tmpDir, 'append5.txt');
+const filename5 = join(tmpdir.path, 'append5.txt');
 fs.writeFileSync(filename5, currentFileData);
 
 fs.open(filename5, 'a+', function(e, fd) {
@@ -144,18 +172,13 @@ fs.open(filename5, 'a+', function(e, fd) {
   });
 });
 
-// test that a missing callback emits a warning, even if the last argument is a
-// function.
-const filename6 = join(common.tmpDir, 'append6.txt');
-const warn = 'Calling an asynchronous function without callback is deprecated.';
-common.expectWarning('DeprecationWarning', warn);
-fs.appendFile(filename6, console.log);
+assert.throws(
+  () => fs.appendFile(join(tmpdir.path, 'append6.txt'), console.log),
+  { code: 'ERR_INVALID_CALLBACK' });
 
 process.on('exit', function() {
-  assert.strictEqual(12, ncallbacks);
+  assert.strictEqual(ncallbacks, 8);
 
-  fs.unlinkSync(filename);
-  fs.unlinkSync(filename2);
   fs.unlinkSync(filename3);
   fs.unlinkSync(filename4);
   fs.unlinkSync(filename5);

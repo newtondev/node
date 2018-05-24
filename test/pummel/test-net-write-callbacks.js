@@ -29,7 +29,7 @@ const N = 500000;
 
 const server = net.Server(function(socket) {
   socket.on('data', function(d) {
-    console.error('got %d bytes', d.length);
+    console.error(`got ${d.length} bytes`);
   });
 
   socket.on('end', function() {
@@ -46,9 +46,10 @@ function makeCallback(c) {
     if (called)
       throw new Error(`called callback #${c} more than once`);
     called = true;
-    if (c < lastCalled)
+    if (c < lastCalled) {
       throw new Error(
         `callbacks out of order. last=${lastCalled} current=${c}`);
+    }
     lastCalled = c;
     cbcount++;
   };

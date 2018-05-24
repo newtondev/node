@@ -29,15 +29,17 @@ const existing = dns.getServers();
 assert(existing.length > 0);
 
 // Verify that setServers() handles arrays with holes and other oddities
-assert.doesNotThrow(() => {
+{
   const servers = [];
 
   servers[0] = '127.0.0.1';
   servers[2] = '0.0.0.0';
   dns.setServers(servers);
-});
 
-assert.doesNotThrow(() => {
+  assert.deepStrictEqual(dns.getServers(), ['127.0.0.1', '0.0.0.0']);
+}
+
+{
   const servers = ['127.0.0.1', '192.168.1.1'];
 
   servers[3] = '127.1.0.1';
@@ -53,23 +55,36 @@ assert.doesNotThrow(() => {
   });
 
   dns.setServers(servers);
-});
+  assert.deepStrictEqual(dns.getServers(), [
+    '127.0.0.1',
+    '192.168.1.1',
+    '0.0.0.0'
+  ]);
+}
 
 const goog = [
   '8.8.8.8',
   '8.8.4.4',
 ];
-assert.doesNotThrow(() => dns.setServers(goog));
+dns.setServers(goog);
 assert.deepStrictEqual(dns.getServers(), goog);
-assert.throws(() => dns.setServers(['foobar']),
-              /^Error: IP address is not properly formatted: foobar$/);
+common.expectsError(() => dns.setServers(['foobar']), {
+  code: 'ERR_INVALID_IP_ADDRESS',
+  type: TypeError,
+  message: 'Invalid IP address: foobar'
+});
+common.expectsError(() => dns.setServers(['127.0.0.1:va']), {
+  code: 'ERR_INVALID_IP_ADDRESS',
+  type: TypeError,
+  message: 'Invalid IP address: 127.0.0.1:va'
+});
 assert.deepStrictEqual(dns.getServers(), goog);
 
 const goog6 = [
   '2001:4860:4860::8888',
   '2001:4860:4860::8844',
 ];
-assert.doesNotThrow(() => dns.setServers(goog6));
+dns.setServers(goog6);
 assert.deepStrictEqual(dns.getServers(), goog6);
 
 goog6.push('4.4.4.4');
@@ -79,25 +94,37 @@ assert.deepStrictEqual(dns.getServers(), goog6);
 const ports = [
   '4.4.4.4:53',
   '[2001:4860:4860::8888]:53',
+  '103.238.225.181:666',
+  '[fe80::483a:5aff:fee6:1f04]:666'
 ];
 const portsExpected = [
   '4.4.4.4',
   '2001:4860:4860::8888',
+  '103.238.225.181:666',
+  '[fe80::483a:5aff:fee6:1f04]:666'
 ];
 dns.setServers(ports);
 assert.deepStrictEqual(dns.getServers(), portsExpected);
 
-assert.doesNotThrow(() => dns.setServers([]));
+dns.setServers([]);
 assert.deepStrictEqual(dns.getServers(), []);
 
-assert.throws(() => {
+common.expectsError(() => {
   dns.resolve('example.com', [], common.mustNotCall());
-}, /^TypeError: "rrtype" argument must be a string$/);
+}, {
+  code: 'ERR_INVALID_ARG_TYPE',
+  type: TypeError,
+  message: 'The "rrtype" argument must be of type string. ' +
+           'Received type object'
+});
 
 // dns.lookup should accept only falsey and string values
 {
-  const errorReg =
-    /^TypeError: Invalid arguments: hostname must be a string or falsey$/;
+  const errorReg = common.expectsError({
+    code: 'ERR_INVALID_ARG_TYPE',
+    type: TypeError,
+    message: /^The "hostname" argument must be one of type string or falsy/
+  }, 5);
 
   assert.throws(() => dns.lookup({}, common.mustNotCall()), errorReg);
 
@@ -119,16 +146,11 @@ assert.throws(() => {
     assert.strictEqual(family, 4);
   };
 
-  assert.doesNotThrow(() => dns.lookup('', common.mustCall(checkCallback)));
-
-  assert.doesNotThrow(() => dns.lookup(null, common.mustCall(checkCallback)));
-
-  assert.doesNotThrow(() => dns.lookup(undefined,
-                                       common.mustCall(checkCallback)));
-
-  assert.doesNotThrow(() => dns.lookup(0, common.mustCall(checkCallback)));
-
-  assert.doesNotThrow(() => dns.lookup(NaN, common.mustCall(checkCallback)));
+  dns.lookup('', common.mustCall(checkCallback));
+  dns.lookup(null, common.mustCall(checkCallback));
+  dns.lookup(undefined, common.mustCall(checkCallback));
+  dns.lookup(0, common.mustCall(checkCallback));
+  dns.lookup(NaN, common.mustCall(checkCallback));
 }
 
 /*
@@ -140,55 +162,74 @@ assert.throws(() => {
  * - it's an odd number different than 1, and thus is invalid, because
  * flags are either === 1 or even.
  */
-assert.throws(() => {
+common.expectsError(() => {
   dns.lookup('nodejs.org', { hints: (dns.V4MAPPED | dns.ADDRCONFIG) + 1 },
              common.mustNotCall());
-}, /^TypeError: Invalid argument: hints must use valid flags$/);
-
-assert.throws(() => dns.lookup('nodejs.org'),
-              /^TypeError: Invalid arguments: callback must be passed$/);
-
-assert.throws(() => dns.lookup('nodejs.org', 4),
-              /^TypeError: Invalid arguments: callback must be passed$/);
-
-assert.doesNotThrow(() => dns.lookup('', {family: 4, hints: 0},
-                                     common.mustCall()));
-
-assert.doesNotThrow(() => {
-  dns.lookup('', {
-    family: 6,
-    hints: dns.ADDRCONFIG
-  }, common.mustCall());
+}, {
+  code: 'ERR_INVALID_OPT_VALUE',
+  type: TypeError,
+  message: /The value "\d+" is invalid for option "hints"/
 });
 
-assert.doesNotThrow(() => dns.lookup('', {hints: dns.V4MAPPED},
-                                     common.mustCall()));
-
-assert.doesNotThrow(() => {
-  dns.lookup('', {
-    hints: dns.ADDRCONFIG | dns.V4MAPPED
-  }, common.mustCall());
+common.expectsError(() => dns.lookup('nodejs.org'), {
+  code: 'ERR_INVALID_CALLBACK',
+  type: TypeError
 });
 
-assert.throws(() => dns.lookupService('0.0.0.0'),
-              /^Error: Invalid arguments$/);
+common.expectsError(() => dns.lookup('nodejs.org', 4), {
+  code: 'ERR_INVALID_CALLBACK',
+  type: TypeError
+});
 
-assert.throws(() => dns.lookupService('fasdfdsaf', 0, common.mustNotCall()),
-              /^TypeError: "host" argument needs to be a valid IP address$/);
+dns.lookup('', { family: 4, hints: 0 }, common.mustCall());
 
-assert.throws(() => dns.lookupService('0.0.0.0', null, common.mustNotCall()),
-              /^TypeError: "port" should be >= 0 and < 65536, got "null"$/);
+dns.lookup('', {
+  family: 6,
+  hints: dns.ADDRCONFIG
+}, common.mustCall());
 
-assert.throws(
-  () => dns.lookupService('0.0.0.0', undefined, common.mustNotCall()),
-  /^TypeError: "port" should be >= 0 and < 65536, got "undefined"$/
-);
+dns.lookup('', { hints: dns.V4MAPPED }, common.mustCall());
 
-assert.throws(() => dns.lookupService('0.0.0.0', 65538, common.mustNotCall()),
-              /^TypeError: "port" should be >= 0 and < 65536, got "65538"$/);
+dns.lookup('', {
+  hints: dns.ADDRCONFIG | dns.V4MAPPED
+}, common.mustCall());
 
-assert.throws(() => dns.lookupService('0.0.0.0', 'test', common.mustNotCall()),
-              /^TypeError: "port" should be >= 0 and < 65536, got "test"$/);
+common.expectsError(() => dns.lookupService('0.0.0.0'), {
+  code: 'ERR_MISSING_ARGS',
+  type: TypeError,
+  message: 'The "host", "port", and "callback" arguments must be specified'
+});
 
-assert.throws(() => dns.lookupService('0.0.0.0', 80, null),
-              /^TypeError: "callback" argument must be a function$/);
+const invalidHost = 'fasdfdsaf';
+common.expectsError(() => {
+  dns.lookupService(invalidHost, 0, common.mustNotCall());
+}, {
+  code: 'ERR_INVALID_OPT_VALUE',
+  type: TypeError,
+  message: `The value "${invalidHost}" is invalid for option "host"`
+});
+
+const portErr = (port) => {
+  common.expectsError(
+    () => {
+      dns.lookupService('0.0.0.0', port, common.mustNotCall());
+    },
+    {
+      code: 'ERR_SOCKET_BAD_PORT',
+      message:
+        `Port should be > 0 and < 65536. Received ${port}.`,
+      type: RangeError
+    }
+  );
+};
+portErr(null);
+portErr(undefined);
+portErr(65538);
+portErr('test');
+
+common.expectsError(() => {
+  dns.lookupService('0.0.0.0', 80, null);
+}, {
+  code: 'ERR_INVALID_CALLBACK',
+  type: TypeError
+});

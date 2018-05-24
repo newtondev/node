@@ -5,7 +5,7 @@ const assert = require('assert');
 const cp = require('child_process');
 
 if (process.argv[2] === 'child') {
-  setInterval(common.noop, 1000);
+  setInterval(() => {}, 1000);
 } else {
   const internalCp = require('internal/child_process');
   const oldSpawnSync = internalCp.spawnSync;
@@ -20,7 +20,7 @@ if (process.argv[2] === 'child') {
     }
     const child = cp.spawnSync(process.execPath,
                                [__filename, 'child'],
-                               {killSignal, timeout: 100});
+                               { killSignal, timeout: 100 });
     if (beforeSpawn)
       internalCp.spawnSync = oldSpawnSync;
     assert.strictEqual(child.status, null);
@@ -29,9 +29,9 @@ if (process.argv[2] === 'child') {
   }
 
   // Verify that an error is thrown for unknown signals.
-  assert.throws(() => {
+  common.expectsError(() => {
     spawn('SIG_NOT_A_REAL_SIGNAL');
-  }, common.expectsError({ code: 'ERR_UNKNOWN_SIGNAL' }));
+  }, { code: 'ERR_UNKNOWN_SIGNAL', type: TypeError });
 
   // Verify that the default kill signal is SIGTERM.
   {

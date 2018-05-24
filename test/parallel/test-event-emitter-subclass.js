@@ -36,6 +36,7 @@ function MyEE(cb) {
 
 const myee = new MyEE(common.mustCall());
 
+myee.hasOwnProperty('usingDomains');
 
 util.inherits(ErrorEE, EventEmitter);
 function ErrorEE() {
@@ -62,6 +63,6 @@ MyEE2.prototype = new EventEmitter();
 const ee1 = new MyEE2();
 const ee2 = new MyEE2();
 
-ee1.on('x', common.noop);
+ee1.on('x', () => {});
 
 assert.strictEqual(ee2.listenerCount('x'), 0);

@@ -11,56 +11,19 @@
 #include "src/base/hashmap.h"
 #include "src/collector.h"
 #include "src/messages.h"
-#include "src/parsing/preparse-data-format.h"
-
 namespace v8 {
 namespace internal {
-
-class ScriptData {
- public:
-  ScriptData(const byte* data, int length);
-  ~ScriptData() {
-    if (owns_data_) DeleteArray(data_);
-  }
-
-  const byte* data() const { return data_; }
-  int length() const { return length_; }
-  bool rejected() const { return rejected_; }
-
-  void Reject() { rejected_ = true; }
-
-  void AcquireDataOwnership() {
-    DCHECK(!owns_data_);
-    owns_data_ = true;
-  }
-
-  void ReleaseDataOwnership() {
-    DCHECK(owns_data_);
-    owns_data_ = false;
-  }
-
- private:
-  bool owns_data_ : 1;
-  bool rejected_ : 1;
-  const byte* data_;
-  int length_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScriptData);
-};
 
 class PreParserLogger final {
  public:
   PreParserLogger()
       : end_(-1),
         num_parameters_(-1),
-        function_length_(-1),
         num_inner_functions_(-1) {}
 
-  void LogFunction(int end, int num_parameters, int function_length,
-                   int num_inner_functions) {
+  void LogFunction(int end, int num_parameters, int num_inner_functions) {
     end_ = end;
     num_parameters_ = num_parameters;
-    function_length_ = function_length;
     num_inner_functions_ = num_inner_functions;
   }
 
@@ -68,36 +31,13 @@ class PreParserLogger final {
   int num_parameters() const {
     return num_parameters_;
   }
-  int function_length() const {
-    return function_length_;
-  }
   int num_inner_functions() const { return num_inner_functions_; }
 
  private:
   int end_;
   // For function entries.
   int num_parameters_;
-  int function_length_;
   int num_inner_functions_;
-};
-
-class ParserLogger final {
- public:
-  ParserLogger();
-
-  void LogFunction(int start, int end, int num_parameters, int function_length,
-                   LanguageMode language_mode, bool uses_super_property,
-                   bool calls_eval, int num_inner_functions);
-
-  ScriptData* GetScriptData();
-
- private:
-  Collector<unsigned> function_store_;
-  unsigned preamble_[PreparseDataConstants::kHeaderSize];
-
-#ifdef DEBUG
-  int prev_start_;
-#endif
 };
 
 class PreParseData final {
@@ -105,26 +45,24 @@ class PreParseData final {
   struct FunctionData {
     int end;
     int num_parameters;
-    int function_length;
     int num_inner_functions;
     LanguageMode language_mode;
     bool uses_super_property : 1;
-    bool calls_eval : 1;
 
-    FunctionData() : end(-1) {}
+    FunctionData() : end(kNoSourcePosition) {}
 
-    FunctionData(int end, int num_parameters, int function_length,
-                 int num_inner_functions, LanguageMode language_mode,
-                 bool uses_super_property, bool calls_eval)
+    FunctionData(int end, int num_parameters, int num_inner_functions,
+                 LanguageMode language_mode, bool uses_super_property)
         : end(end),
           num_parameters(num_parameters),
-          function_length(function_length),
           num_inner_functions(num_inner_functions),
           language_mode(language_mode),
-          uses_super_property(uses_super_property),
-          calls_eval(calls_eval) {}
+          uses_super_property(uses_super_property) {}
 
-    bool is_valid() const { return end > 0; }
+    bool is_valid() const {
+      DCHECK_IMPLIES(end < 0, end == kNoSourcePosition);
+      return end != kNoSourcePosition;
+    }
   };
 
   FunctionData GetFunctionData(int start) const;

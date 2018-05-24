@@ -4,7 +4,7 @@
 
 #include "test/unittests/test-utils.h"
 
-#include "src/wasm/wasm-macro-gen.h"
+#include "test/common/wasm/wasm-macro-gen.h"
 
 namespace v8 {
 namespace internal {
@@ -37,7 +37,7 @@ TEST_F(WasmMacroGenTest, Constants) {
   EXPECT_SIZE(4, WASM_I64V_3(10000));
   EXPECT_SIZE(5, WASM_I64V_4(-9828934));
   EXPECT_SIZE(6, WASM_I64V_5(-1119828934));
-  EXPECT_SIZE(10, WASM_I64V_9(0x123456789abcdef0ULL));
+  EXPECT_SIZE(10, WASM_I64V_9(0x123456789ABCDEF0ULL));
 
   EXPECT_SIZE(5, WASM_F32(1.0f));
   EXPECT_SIZE(5, WASM_F32(10000.0f));
@@ -309,6 +309,9 @@ TEST_F(WasmMacroGenTest, LoadsAndStoresWithOffset) {
                                          WASM_GET_LOCAL(0)));
   }
 }
+
+#undef EXPECT_SIZE
+
 }  // namespace wasm
 }  // namespace internal
 }  // namespace v8

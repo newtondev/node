@@ -1,9 +1,12 @@
 'use strict';
 
 const common = require('../common');
+
 const assert = require('assert');
 const initHooks = require('./init-hooks');
 const { checkInvocations } = require('./hook-checks');
+
+common.crashOnUnhandledRejection();
 
 const hooks = initHooks();
 
@@ -47,6 +50,6 @@ function onexit() {
   assert.strictEqual(a1.type, 'PROMISE');
   assert.strictEqual(typeof a1.uid, 'number');
   assert.strictEqual(a1.triggerAsyncId, a0.uid);
-  // We expect a destroy hook as well but we cannot guarentee predictable gc.
+  // We expect a destroy hook as well but we cannot guarantee predictable gc.
   checkInvocations(a1, { init: 1, before: 1, after: 1 }, 'when process exits');
 }

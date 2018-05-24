@@ -19,49 +19,54 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-/* eslint-disable required-modules */
+/* eslint-disable node-core/required-modules, node-core/crypto-check */
 'use strict';
+const process = global.process;  // Some tests tamper with the process global.
 const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
 const os = require('os');
-const child_process = require('child_process');
+const { exec, execSync, spawn, spawnSync } = require('child_process');
 const stream = require('stream');
-const buffer = require('buffer');
 const util = require('util');
 const Timer = process.binding('timer_wrap').Timer;
-const execSync = require('child_process').execSync;
-
-const testRoot = process.env.NODE_TEST_DIR ?
-  fs.realpathSync(process.env.NODE_TEST_DIR) : path.resolve(__dirname, '..');
+const { hasTracing } = process.binding('config');
+const { fixturesDir } = require('./fixtures');
+const tmpdir = require('./tmpdir');
 
 const noop = () => {};
 
-exports.noop = noop;
-exports.fixturesDir = path.join(__dirname, '..', 'fixtures');
-exports.tmpDirName = 'tmp';
-// PORT should match the definition in test/testpy/__init__.py.
-exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
+Object.defineProperty(exports, 'PORT', {
+  get: () => {
+    if (+process.env.TEST_PARALLEL) {
+      throw new Error('common.PORT cannot be used in a parallelized test');
+    }
+    return +process.env.NODE_COMMON_PORT || 12346;
+  },
+  enumerable: true
+});
+
+
 exports.isWindows = process.platform === 'win32';
 exports.isWOW64 = exports.isWindows &&
                   (process.env.PROCESSOR_ARCHITEW6432 !== undefined);
-exports.isAix = process.platform === 'aix';
+exports.isAIX = process.platform === 'aix';
 exports.isLinuxPPCBE = (process.platform === 'linux') &&
                        (process.arch === 'ppc64') &&
                        (os.endianness() === 'BE');
 exports.isSunOS = process.platform === 'sunos';
 exports.isFreeBSD = process.platform === 'freebsd';
+exports.isOpenBSD = process.platform === 'openbsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
 
-exports.enoughTestMem = os.totalmem() > 0x40000000; /* 1 Gb */
-exports.bufferMaxSizeMsg = new RegExp(
-  `^RangeError: "size" argument must not be larger than ${buffer.kMaxLength}$`);
+exports.enoughTestMem = os.totalmem() > 0x70000000; /* 1.75 Gb */
 const cpus = os.cpus();
 exports.enoughTestCpu = Array.isArray(cpus) &&
                         (cpus.length > 1 || cpus[0].speed > 999);
 
 exports.rootDir = exports.isWindows ? 'c:\\' : '/';
+
 exports.buildType = process.config.target_defaults.default_configuration;
 
 // If env var is set then enable async_hook hooks for all tests.
@@ -72,28 +77,31 @@ if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
   const async_wrap = process.binding('async_wrap');
 
   process.on('exit', () => {
-    // itterate through handles to make sure nothing crashes
+    // iterate through handles to make sure nothing crashes
     for (const k in initHandles)
       util.inspect(initHandles[k]);
   });
 
-  const _addIdToDestroyList = async_wrap.addIdToDestroyList;
-  async_wrap.addIdToDestroyList = function addIdToDestroyList(id) {
+  const _queueDestroyAsyncId = async_wrap.queueDestroyAsyncId;
+  async_wrap.queueDestroyAsyncId = function queueDestroyAsyncId(id) {
     if (destroyListList[id] !== undefined) {
       process._rawDebug(destroyListList[id]);
       process._rawDebug();
-      throw new Error(`same id added twice (${id})`);
+      throw new Error(`same id added to destroy list twice (${id})`);
     }
     destroyListList[id] = new Error().stack;
-    _addIdToDestroyList(id);
+    _queueDestroyAsyncId(id);
   };
 
   require('async_hooks').createHook({
-    init(id, ty, tr, h) {
+    init(id, ty, tr, r) {
       if (initHandles[id]) {
+        process._rawDebug(
+          `Is same resource: ${r === initHandles[id].resource}`);
+        process._rawDebug(`Previous stack:\n${initHandles[id].stack}\n`);
         throw new Error(`init called twice for same id (${id})`);
       }
-      initHandles[id] = h;
+      initHandles[id] = { resource: r, stack: new Error().stack.substr(6) };
     },
     before() { },
     after() { },
@@ -107,63 +115,6 @@ if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
     },
   }).enable();
 }
-
-function rimrafSync(p) {
-  let st;
-  try {
-    st = fs.lstatSync(p);
-  } catch (e) {
-    if (e.code === 'ENOENT')
-      return;
-  }
-
-  try {
-    if (st && st.isDirectory())
-      rmdirSync(p, null);
-    else
-      fs.unlinkSync(p);
-  } catch (e) {
-    if (e.code === 'ENOENT')
-      return;
-    if (e.code === 'EPERM')
-      return rmdirSync(p, e);
-    if (e.code !== 'EISDIR')
-      throw e;
-    rmdirSync(p, e);
-  }
-}
-
-function rmdirSync(p, originalEr) {
-  try {
-    fs.rmdirSync(p);
-  } catch (e) {
-    if (e.code === 'ENOTDIR')
-      throw originalEr;
-    if (e.code === 'ENOTEMPTY' || e.code === 'EEXIST' || e.code === 'EPERM') {
-      const enc = exports.isLinux ? 'buffer' : 'utf8';
-      fs.readdirSync(p, enc).forEach((f) => {
-        if (f instanceof Buffer) {
-          const buf = Buffer.concat([Buffer.from(p), Buffer.from(path.sep), f]);
-          rimrafSync(buf);
-        } else {
-          rimrafSync(path.join(p, f));
-        }
-      });
-      fs.rmdirSync(p);
-    }
-  }
-}
-
-exports.refreshTmpDir = function() {
-  rimrafSync(exports.tmpDir);
-  fs.mkdirSync(exports.tmpDir);
-};
-
-if (process.env.TEST_THREAD_ID) {
-  exports.PORT += process.env.TEST_THREAD_ID * 100;
-  exports.tmpDirName += `.${process.env.TEST_THREAD_ID}`;
-}
-exports.tmpDir = path.join(testRoot, exports.tmpDirName);
 
 let opensslCli = null;
 let inFreeBSDJail = null;
@@ -190,7 +141,7 @@ Object.defineProperty(exports, 'inFreeBSDJail', {
     if (inFreeBSDJail !== null) return inFreeBSDJail;
 
     if (exports.isFreeBSD &&
-      child_process.execSync('sysctl -n security.jail.jailed').toString() ===
+      execSync('sysctl -n security.jail.jailed').toString() ===
       '1\n') {
       inFreeBSDJail = true;
     } else {
@@ -224,7 +175,7 @@ Object.defineProperty(exports, 'localhostIPv4', {
 });
 
 // opensslCli defined lazily to reduce overhead of spawnSync
-Object.defineProperty(exports, 'opensslCli', {get: function() {
+Object.defineProperty(exports, 'opensslCli', { get: function() {
   if (opensslCli !== null) return opensslCli;
 
   if (process.config.variables.node_shared_openssl) {
@@ -237,17 +188,23 @@ Object.defineProperty(exports, 'opensslCli', {get: function() {
 
   if (exports.isWindows) opensslCli += '.exe';
 
-  const opensslCmd = child_process.spawnSync(opensslCli, ['version']);
+  const opensslCmd = spawnSync(opensslCli, ['version']);
   if (opensslCmd.status !== 0 || opensslCmd.error !== undefined) {
     // openssl command cannot be executed
     opensslCli = false;
   }
   return opensslCli;
-}, enumerable: true});
+}, enumerable: true });
 
 Object.defineProperty(exports, 'hasCrypto', {
   get: function() {
-    return process.versions.openssl ? true : false;
+    return Boolean(process.versions.openssl);
+  }
+});
+
+Object.defineProperty(exports, 'hasTracing', {
+  get: function() {
+    return Boolean(hasTracing);
   }
 });
 
@@ -257,21 +214,22 @@ Object.defineProperty(exports, 'hasFipsCrypto', {
   }
 });
 
-if (exports.isWindows) {
-  exports.PIPE = '\\\\.\\pipe\\libuv-test';
-  if (process.env.TEST_THREAD_ID) {
-    exports.PIPE += `.${process.env.TEST_THREAD_ID}`;
-  }
-} else {
-  exports.PIPE = `${exports.tmpDir}/test.sock`;
+{
+  const localRelative = path.relative(process.cwd(), `${tmpdir.path}/`);
+  const pipePrefix = exports.isWindows ? '\\\\.\\pipe\\' : localRelative;
+  const pipeName = `node-test.${process.pid}.sock`;
+  exports.PIPE = path.join(pipePrefix, pipeName);
 }
 
-const ifaces = os.networkInterfaces();
-exports.hasIPv6 = Object.keys(ifaces).some(function(name) {
-  return /lo/.test(name) && ifaces[name].some(function(info) {
-    return info.family === 'IPv6';
+{
+  const iFaces = os.networkInterfaces();
+  const re = exports.isWindows ? /Loopback Pseudo-Interface/ : /lo/;
+  exports.hasIPv6 = Object.keys(iFaces).some(function(name) {
+    return re.test(name) && iFaces[name].some(function(info) {
+      return info.family === 'IPv6';
+    });
   });
-});
+}
 
 /*
  * Check that when running a test with
@@ -287,7 +245,7 @@ exports.childShouldThrowAndAbort = function() {
   }
   testCmd += `"${process.argv[0]}" --abort-on-uncaught-exception `;
   testCmd += `"${process.argv[1]}" child`;
-  const child = child_process.exec(testCmd);
+  const child = exec(testCmd);
   child.on('exit', function onExit(exitCode, signal) {
     const errMsg = 'Test should have aborted ' +
                    `but instead exited with exit code ${exitCode}` +
@@ -298,7 +256,7 @@ exports.childShouldThrowAndAbort = function() {
 
 exports.ddCommand = function(filename, kilobytes) {
   if (exports.isWindows) {
-    const p = path.resolve(exports.fixturesDir, 'create-file.js');
+    const p = path.resolve(fixturesDir, 'create-file.js');
     return `"${process.argv[0]}" "${p}" "${filename}" ${kilobytes * 1024}`;
   } else {
     return `dd if=/dev/zero of="${filename}" bs=1024 count=${kilobytes}`;
@@ -307,8 +265,6 @@ exports.ddCommand = function(filename, kilobytes) {
 
 
 exports.spawnPwd = function(options) {
-  const spawn = require('child_process').spawn;
-
   if (exports.isWindows) {
     return spawn('cmd.exe', ['/d', '/c', 'cd'], options);
   } else {
@@ -318,8 +274,6 @@ exports.spawnPwd = function(options) {
 
 
 exports.spawnSyncPwd = function(options) {
-  const spawnSync = require('child_process').spawnSync;
-
   if (exports.isWindows) {
     return spawnSync('cmd.exe', ['/d', '/c', 'cd'], options);
   } else {
@@ -328,13 +282,13 @@ exports.spawnSyncPwd = function(options) {
 };
 
 exports.platformTimeout = function(ms) {
-  if (process.config.target_defaults.default_configuration === 'Debug')
+  if (process.features.debug)
     ms = 2 * ms;
 
   if (global.__coverage__)
     ms = 4 * ms;
 
-  if (exports.isAix)
+  if (exports.isAIX)
     return 2 * ms; // default localhost speed is slower on AIX
 
   if (process.arch !== 'arm')
@@ -356,8 +310,6 @@ let knownGlobals = [
   clearImmediate,
   clearInterval,
   clearTimeout,
-  console,
-  constructor, // Enumerable in V8 3.21.
   global,
   process,
   setImmediate,
@@ -387,36 +339,9 @@ if (global.COUNTER_NET_SERVER_CONNECTION) {
   knownGlobals.push(COUNTER_HTTP_CLIENT_RESPONSE);
 }
 
-if (global.LTTNG_HTTP_SERVER_RESPONSE) {
-  knownGlobals.push(LTTNG_HTTP_SERVER_RESPONSE);
-  knownGlobals.push(LTTNG_HTTP_SERVER_REQUEST);
-  knownGlobals.push(LTTNG_HTTP_CLIENT_RESPONSE);
-  knownGlobals.push(LTTNG_HTTP_CLIENT_REQUEST);
-  knownGlobals.push(LTTNG_NET_STREAM_END);
-  knownGlobals.push(LTTNG_NET_SERVER_CONNECTION);
-}
-
-if (global.ArrayBuffer) {
-  knownGlobals.push(ArrayBuffer);
-  knownGlobals.push(Int8Array);
-  knownGlobals.push(Uint8Array);
-  knownGlobals.push(Uint8ClampedArray);
-  knownGlobals.push(Int16Array);
-  knownGlobals.push(Uint16Array);
-  knownGlobals.push(Int32Array);
-  knownGlobals.push(Uint32Array);
-  knownGlobals.push(Float32Array);
-  knownGlobals.push(Float64Array);
-  knownGlobals.push(DataView);
-}
-
-// Harmony features.
-if (global.Proxy) {
-  knownGlobals.push(Proxy);
-}
-
-if (global.Symbol) {
-  knownGlobals.push(Symbol);
+if (process.env.NODE_TEST_KNOWN_GLOBALS) {
+  const knownFromEnv = process.env.NODE_TEST_KNOWN_GLOBALS.split(',');
+  allowGlobals(...knownFromEnv);
 }
 
 function allowGlobals(...whitelist) {
@@ -427,33 +352,28 @@ exports.allowGlobals = allowGlobals;
 function leakedGlobals() {
   const leaked = [];
 
-  // eslint-disable-next-line no-var
-  for (var val in global)
-    if (!knownGlobals.includes(global[val]))
+  for (const val in global) {
+    if (!knownGlobals.includes(global[val])) {
       leaked.push(val);
+    }
+  }
 
   if (global.__coverage__) {
-    return leaked.filter((varname) => !/^(cov_|__cov)/.test(varname));
+    return leaked.filter((varname) => !/^(?:cov_|__cov)/.test(varname));
   } else {
     return leaked;
   }
 }
 exports.leakedGlobals = leakedGlobals;
 
-// Turn this off if the test should not check for global leaks.
-exports.globalCheck = true;
-
 process.on('exit', function() {
-  if (!exports.globalCheck) return;
   const leaked = leakedGlobals();
   if (leaked.length > 0) {
     assert.fail(`Unexpected global(s) found: ${leaked.join(', ')}`);
   }
 });
 
-
 const mustCallChecks = [];
-
 
 function runCallChecks(exitCode) {
   if (exitCode !== 0) return;
@@ -487,7 +407,15 @@ exports.mustCallAtLeast = function(fn, minimum) {
   return _mustCallInner(fn, minimum, 'minimum');
 };
 
-function _mustCallInner(fn, criteria, field) {
+exports.mustCallAsync = function(fn, exact) {
+  return exports.mustCall((...args) => {
+    return Promise.resolve(fn(...args)).then(exports.mustCall((val) => val));
+  }, exact);
+};
+
+function _mustCallInner(fn, criteria = 1, field) {
+  if (process._exiting)
+    throw new Error('Cannot use common.mustCall*() in process exit handler');
   if (typeof fn === 'number') {
     criteria = fn;
     fn = noop;
@@ -495,9 +423,7 @@ function _mustCallInner(fn, criteria, field) {
     fn = noop;
   }
 
-  if (criteria === undefined)
-    criteria = 1;
-  else if (typeof criteria !== 'number')
+  if (typeof criteria !== 'number')
     throw new TypeError(`Invalid ${field} value: ${criteria}`);
 
   const context = {
@@ -519,9 +445,9 @@ function _mustCallInner(fn, criteria, field) {
 }
 
 exports.hasMultiLocalhost = function hasMultiLocalhost() {
-  const TCP = process.binding('tcp_wrap').TCP;
-  const t = new TCP();
-  const ret = t.bind('127.0.0.2', exports.PORT);
+  const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
+  const t = new TCP(TCPConstants.SOCKET);
+  const ret = t.bind('127.0.0.2', 0);
   t.close();
   return ret === 0;
 };
@@ -535,6 +461,14 @@ exports.fileExists = function(pathname) {
   }
 };
 
+exports.skipIfEslintMissing = function() {
+  if (!exports.fileExists(
+    path.join(__dirname, '..', '..', 'tools', 'node_modules', 'eslint')
+  )) {
+    exports.skip('missing ESLint');
+  }
+};
+
 exports.canCreateSymLink = function() {
   // On Windows, creating symlinks requires admin privileges.
   // We'll only try to run symlink test if we have enough privileges.
@@ -543,34 +477,47 @@ exports.canCreateSymLink = function() {
     // whoami.exe needs to be the one from System32
     // If unix tools are in the path, they can shadow the one we want,
     // so use the full path while executing whoami
-    const whoamiPath = path.join(process.env['SystemRoot'],
+    const whoamiPath = path.join(process.env.SystemRoot,
                                  'System32', 'whoami.exe');
 
-    let err = false;
-    let output = '';
-
     try {
-      output = execSync(`${whoamiPath} /priv`, { timout: 1000 });
+      const output = execSync(`${whoamiPath} /priv`, { timout: 1000 });
+      return output.includes('SeCreateSymbolicLinkPrivilege');
     } catch (e) {
-      err = true;
-    } finally {
-      if (err || !output.includes('SeCreateSymbolicLinkPrivilege')) {
-        return false;
-      }
+      return false;
     }
   }
-
+  // On non-Windows platforms, this always returns `true`
   return true;
 };
 
+exports.getCallSite = function getCallSite(top) {
+  const originalStackFormatter = Error.prepareStackTrace;
+  Error.prepareStackTrace = (err, stack) =>
+    `${stack[0].getFileName()}:${stack[0].getLineNumber()}`;
+  const err = new Error();
+  Error.captureStackTrace(err, top);
+  // with the V8 Error API, the stack is not formatted until it is accessed
+  err.stack;
+  Error.prepareStackTrace = originalStackFormatter;
+  return err.stack;
+};
+
 exports.mustNotCall = function(msg) {
+  const callSite = exports.getCallSite(exports.mustNotCall);
   return function mustNotCall() {
-    assert.fail(msg || 'function should not have been called');
+    assert.fail(
+      `${msg || 'function should not have been called'} at ${callSite}`);
   };
 };
 
-exports.skip = function(msg) {
+exports.printSkipMessage = function(msg) {
   console.log(`1..0 # Skipped: ${msg}`);
+};
+
+exports.skip = function(msg) {
+  exports.printSkipMessage(msg);
+  process.exit(0);
 };
 
 // A stream to push an array into a REPL
@@ -608,10 +555,10 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   // On Windows, 'aborts' are of 2 types, depending on the context:
   // (i) Forced access violation, if --abort-on-uncaught-exception is on
   // which corresponds to exit code 3221225477 (0xC0000005)
-  // (ii) raise(SIGABRT) or abort(), which lands up in CRT library calls
-  // which corresponds to exit code 3.
+  // (ii) Otherwise, _exit(134) which is called in place of abort() due to
+  // raising SIGABRT exiting with ambiguous exit code '3' by default
   if (exports.isWindows)
-    expectedExitCodes = [3221225477, 3];
+    expectedExitCodes = [0xC0000005, 134];
 
   // When using --abort-on-uncaught-exception, V8 will use
   // base::OS::Abort to terminate the process.
@@ -642,20 +589,32 @@ exports.isAlive = function isAlive(pid) {
   }
 };
 
-function expectWarning(name, expectedMessages) {
+exports.noWarnCode = 'no_expected_warning_code';
+
+function expectWarning(name, expected) {
+  const map = new Map(expected);
   return exports.mustCall((warning) => {
     assert.strictEqual(warning.name, name);
-    assert.ok(expectedMessages.includes(warning.message),
+    assert.ok(map.has(warning.message),
               `unexpected error message: "${warning.message}"`);
+    const code = map.get(warning.message);
+    if (code === undefined) {
+      throw new Error('An error code must be specified or use ' +
+      'common.noWarnCode if there is no error code. The error  ' +
+      `code for this warning was ${warning.code}`);
+    }
+    if (code !== exports.noWarnCode) {
+      assert.strictEqual(warning.code, code);
+    }
     // Remove a warning message after it is seen so that we guarantee that we
     // get each message only once.
-    expectedMessages.splice(expectedMessages.indexOf(warning.message), 1);
-  }, expectedMessages.length);
+    map.delete(expected);
+  }, expected.length);
 }
 
-function expectWarningByName(name, expected) {
+function expectWarningByName(name, expected, code) {
   if (typeof expected === 'string') {
-    expected = [expected];
+    expected = [[expected, code]];
   }
   process.on('warning', expectWarning(name, expected));
 }
@@ -664,8 +623,15 @@ function expectWarningByMap(warningMap) {
   const catchWarning = {};
   Object.keys(warningMap).forEach((name) => {
     let expected = warningMap[name];
-    if (typeof expected === 'string') {
-      expected = [expected];
+    if (!Array.isArray(expected)) {
+      throw new Error('warningMap entries must be arrays consisting of two ' +
+      'entries: [message, warningCode]');
+    }
+    if (!(Array.isArray(expected[0]))) {
+      if (expected.length === 0) {
+        return;
+      }
+      expected = [[expected[0], expected[1]]];
     }
     catchWarning[name] = expectWarning(name, expected);
   });
@@ -675,9 +641,9 @@ function expectWarningByMap(warningMap) {
 // accepts a warning name and description or array of descriptions or a map
 // of warning names to description(s)
 // ensures a warning is generated for each name/description pair
-exports.expectWarning = function(nameOrMap, expected) {
+exports.expectWarning = function(nameOrMap, expected, code) {
   if (typeof nameOrMap === 'string') {
-    expectWarningByName(nameOrMap, expected);
+    expectWarningByName(nameOrMap, expected, code);
   } else {
     expectWarningByMap(nameOrMap);
   }
@@ -689,47 +655,130 @@ Object.defineProperty(exports, 'hasIntl', {
   }
 });
 
+Object.defineProperty(exports, 'hasSmallICU', {
+  get: function() {
+    return process.binding('config').hasSmallICU;
+  }
+});
+
+class Comparison {
+  constructor(obj, keys) {
+    for (const key of keys) {
+      if (key in obj)
+        this[key] = obj[key];
+    }
+  }
+}
+
 // Useful for testing expected internal/error objects
-exports.expectsError = function expectsError({code, type, message}) {
-  return function(error) {
-    assert.strictEqual(error.code, code);
-    if (type !== undefined)
-      assert(error instanceof type,
-             `${error} is not the expected type ${type}`);
-    if (message instanceof RegExp) {
-      assert(message.test(error.message),
-             `${error.message} does not match ${message}`);
-    } else if (typeof message === 'string') {
-      assert.strictEqual(error.message, message);
+exports.expectsError = function expectsError(fn, settings, exact) {
+  if (typeof fn !== 'function') {
+    exact = settings;
+    settings = fn;
+    fn = undefined;
+  }
+
+  function innerFn(error) {
+    if (arguments.length !== 1) {
+      // Do not use `assert.strictEqual()` to prevent `util.inspect` from
+      // always being called.
+      assert.fail(`Expected one argument, got ${util.inspect(arguments)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(error, 'message');
+    assert.strictEqual(descriptor.enumerable,
+                       false, 'The error message should be non-enumerable');
+
+    let innerSettings = settings;
+    if ('type' in settings) {
+      const type = settings.type;
+      if (type !== Error && !Error.isPrototypeOf(type)) {
+        throw new TypeError('`settings.type` must inherit from `Error`');
+      }
+      let constructor = error.constructor;
+      if (constructor.name === 'NodeError' && type.name !== 'NodeError') {
+        constructor = Object.getPrototypeOf(error.constructor);
+      }
+      // Add the `type` to the error to properly compare and visualize it.
+      if (!('type' in error))
+        error.type = constructor;
+    }
+
+    if ('message' in settings &&
+        typeof settings.message === 'object' &&
+        settings.message.test(error.message)) {
+      // Make a copy so we are able to modify the settings.
+      innerSettings = Object.create(
+        settings, Object.getOwnPropertyDescriptors(settings));
+      // Visualize the message as identical in case of other errors.
+      innerSettings.message = error.message;
+    }
+
+    // Check all error properties.
+    const keys = Object.keys(settings);
+    for (const key of keys) {
+      if (!util.isDeepStrictEqual(error[key], innerSettings[key])) {
+        // Create placeholder objects to create a nice output.
+        const a = new Comparison(error, keys);
+        const b = new Comparison(innerSettings, keys);
+
+        const tmpLimit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 0;
+        const err = new assert.AssertionError({
+          actual: a,
+          expected: b,
+          operator: 'strictEqual',
+          stackStartFn: assert.throws
+        });
+        Error.stackTraceLimit = tmpLimit;
+
+        throw new assert.AssertionError({
+          actual: error,
+          expected: settings,
+          operator: 'common.expectsError',
+          message: err.message
+        });
+      }
+
     }
     return true;
-  };
+  }
+  if (fn) {
+    assert.throws(fn, innerFn);
+    return;
+  }
+  return exports.mustCall(innerFn, exact);
 };
 
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
   if (process.config.variables.v8_enable_inspector === 0) {
     exports.skip('V8 inspector is disabled');
-    process.exit(0);
   }
 };
 
-const arrayBufferViews = [
-  Int8Array,
-  Uint8Array,
-  Uint8ClampedArray,
-  Int16Array,
-  Uint16Array,
-  Int32Array,
-  Uint32Array,
-  Float32Array,
-  Float64Array,
-  DataView
-];
+exports.skipIf32Bits = function skipIf32Bits() {
+  if (process.binding('config').bits < 64) {
+    exports.skip('The tested feature is not available in 32bit builds');
+  }
+};
 
 exports.getArrayBufferViews = function getArrayBufferViews(buf) {
   const { buffer, byteOffset, byteLength } = buf;
 
   const out = [];
+
+  const arrayBufferViews = [
+    Int8Array,
+    Uint8Array,
+    Uint8ClampedArray,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array,
+    DataView
+  ];
+
   for (const type of arrayBufferViews) {
     const { BYTES_PER_ELEMENT = 1 } = type;
     if (byteLength % BYTES_PER_ELEMENT === 0) {
@@ -739,6 +788,10 @@ exports.getArrayBufferViews = function getArrayBufferViews(buf) {
   return out;
 };
 
+exports.getBufferSources = function getBufferSources(buf) {
+  return [...exports.getArrayBufferViews(buf), new Uint8Array(buf).buffer];
+};
+
 // Crash the process on unhandled rejections.
 exports.crashOnUnhandledRejection = function() {
   process.on('unhandledRejection',
@@ -746,18 +799,20 @@ exports.crashOnUnhandledRejection = function() {
 };
 
 exports.getTTYfd = function getTTYfd() {
+  // Do our best to grab a tty fd.
   const tty = require('tty');
-  let tty_fd = 0;
-  if (!tty.isatty(tty_fd)) tty_fd++;
-  else if (!tty.isatty(tty_fd)) tty_fd++;
-  else if (!tty.isatty(tty_fd)) tty_fd++;
-  else try {
-    tty_fd = require('fs').openSync('/dev/tty');
-  } catch (e) {
-    // There aren't any tty fd's available to use.
-    return -1;
+  // Don't attempt fd 0 as it is not writable on Windows.
+  // Ref: ef2861961c3d9e9ed6972e1e84d969683b25cf95
+  const ttyFd = [1, 2, 4, 5].find(tty.isatty);
+  if (ttyFd === undefined) {
+    try {
+      return fs.openSync('/dev/tty');
+    } catch (e) {
+      // There aren't any tty fd's available to use.
+      return -1;
+    }
   }
-  return tty_fd;
+  return ttyFd;
 };
 
 // Hijack stdout and stderr
@@ -768,7 +823,12 @@ function hijackStdWritable(name, listener) {
 
   stream.writeTimes = 0;
   stream.write = function(data, callback) {
-    listener(data);
+    try {
+      listener(data);
+    } catch (e) {
+      process.nextTick(() => { throw e; });
+    }
+
     _write.call(stream, data, callback);
     stream.writeTimes++;
   };
@@ -779,7 +839,25 @@ function restoreWritable(name) {
   delete process[name].writeTimes;
 }
 
+exports.runWithInvalidFD = function(func) {
+  let fd = 1 << 30;
+  // Get first known bad file descriptor. 1 << 30 is usually unlikely to
+  // be an valid one.
+  try {
+    while (fs.fstatSync(fd--) && fd > 0);
+  } catch (e) {
+    return func(fd);
+  }
+
+  exports.printSkipMessage('Could not generate an invalid fd');
+};
+
 exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
 exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
 exports.restoreStdout = restoreWritable.bind(null, 'stdout');
 exports.restoreStderr = restoreWritable.bind(null, 'stderr');
+exports.isCPPSymbolsNotMapped = exports.isWindows ||
+                                exports.isSunOS ||
+                                exports.isAIX ||
+                                exports.isLinuxPPCBE ||
+                                exports.isFreeBSD;

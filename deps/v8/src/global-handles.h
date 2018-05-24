@@ -6,19 +6,19 @@
 #define V8_GLOBAL_HANDLES_H_
 
 #include <type_traits>
+#include <vector>
 
 #include "include/v8.h"
 #include "include/v8-profiler.h"
 
 #include "src/handles.h"
-#include "src/list.h"
 #include "src/utils.h"
 
 namespace v8 {
 namespace internal {
 
 class HeapStats;
-class ObjectVisitor;
+class RootVisitor;
 
 // Structure for tracking global handles.
 // A single list keeps all the allocated global handles.
@@ -43,12 +43,6 @@ enum WeaknessType {
 
 class GlobalHandles {
  public:
-  enum IterationMode {
-    HANDLE_PHANTOM_NODES_VISIT_OTHERS,
-    VISIT_OTHERS,
-    HANDLE_PHANTOM_NODES
-  };
-
   ~GlobalHandles();
 
   // Creates a new global handle that is alive until Destroy is called.
@@ -83,14 +77,9 @@ class GlobalHandles {
 
   static void MakeWeak(Object*** location_addr);
 
+  static void AnnotateStrongRetainer(Object** location, const char* label);
+
   void RecordStats(HeapStats* stats);
-
-  // Returns the current number of weak handles.
-  int NumberOfWeakHandles();
-
-  // Returns the current number of weak handles to global objects.
-  // These handles are also included in NumberOfWeakHandles().
-  int NumberOfGlobalObjectWeakHandles();
 
   // Returns the current number of handles to global objects.
   int global_handles_count() const {
@@ -105,13 +94,10 @@ class GlobalHandles {
     number_of_phantom_handle_resets_ = 0;
   }
 
+  size_t NumberOfNewSpaceNodes() { return new_space_nodes_.size(); }
+
   // Clear the weakness of a global handle.
   static void* ClearWeakness(Object** location);
-
-  // Mark the reference to this object independent.
-  static void MarkIndependent(Object** location);
-
-  static bool IsIndependent(Object** location);
 
   // Tells whether global handle is near death.
   static bool IsNearDeath(Object** location);
@@ -124,11 +110,14 @@ class GlobalHandles {
   int PostGarbageCollectionProcessing(
       GarbageCollector collector, const v8::GCCallbackFlags gc_callback_flags);
 
-  // Iterates over all strong handles.
-  void IterateStrongRoots(ObjectVisitor* v);
+  void IterateStrongRoots(RootVisitor* v);
 
-  // Iterates over all handles.
-  void IterateAllRoots(ObjectVisitor* v);
+  void IterateWeakRoots(RootVisitor* v);
+
+  void IterateAllRoots(RootVisitor* v);
+
+  void IterateAllNewSpaceRoots(RootVisitor* v);
+  void IterateNewSpaceRoots(RootVisitor* v, size_t start, size_t end);
 
   // Iterates over all handles that have embedder-assigned class ID.
   void IterateAllRootsWithClassIds(v8::PersistentHandleVisitor* v);
@@ -141,38 +130,35 @@ class GlobalHandles {
   // and have class IDs
   void IterateWeakRootsInNewSpaceWithClassIds(v8::PersistentHandleVisitor* v);
 
-  // Iterates over all weak roots in heap.
-  void IterateWeakRoots(ObjectVisitor* v);
+  // Iterates over weak roots on the heap.
+  void IterateWeakRootsForFinalizers(RootVisitor* v);
+  void IterateWeakRootsForPhantomHandles(WeakSlotCallback should_reset_handle);
 
-  // Find all weak handles satisfying the callback predicate, mark
-  // them as pending.
-  void IdentifyWeakHandles(WeakSlotCallback f);
+  // Marks all handles that should be finalized based on the predicate
+  // |should_reset_handle| as pending.
+  void IdentifyWeakHandles(WeakSlotCallback should_reset_handle);
 
   // NOTE: Five ...NewSpace... functions below are used during
   // scavenge collections and iterate over sets of handles that are
   // guaranteed to contain all handles holding new space objects (but
   // may also include old space objects).
 
-  // Iterates over strong and dependent handles. See the node above.
-  void IterateNewSpaceStrongAndDependentRoots(ObjectVisitor* v);
+  // Iterates over strong and dependent handles. See the note above.
+  void IterateNewSpaceStrongAndDependentRoots(RootVisitor* v);
 
-  // Finds weak independent or partially independent handles satisfying
-  // the callback predicate and marks them as pending. See the note above.
-  void IdentifyNewSpaceWeakIndependentHandles(WeakSlotCallbackWithHeap f);
+  // Iterates over strong and dependent handles. See the note above.
+  // Also marks unmodified nodes in the same iteration.
+  void IterateNewSpaceStrongAndDependentRootsAndIdentifyUnmodified(
+      RootVisitor* v, size_t start, size_t end);
 
-  // Iterates over weak independent or partially independent handles.
-  // See the note above.
-  void IterateNewSpaceWeakIndependentRoots(ObjectVisitor* v);
-
-  // Finds weak independent or unmodified handles satisfying
-  // the callback predicate and marks them as pending. See the note above.
+  // Marks weak unmodified handles satisfying |is_dead| as pending.
   void MarkNewSpaceWeakUnmodifiedObjectsPending(
-      WeakSlotCallbackWithHeap is_unscavenged);
+      WeakSlotCallbackWithHeap is_dead);
 
-  // Iterates over weak independent or unmodified handles.
-  // See the note above.
-  template <IterationMode mode>
-  void IterateNewSpaceWeakUnmodifiedRoots(ObjectVisitor* v);
+  // Iterates over weak unmodified handles. See the note above.
+  void IterateNewSpaceWeakUnmodifiedRootsForFinalizers(RootVisitor* v);
+  void IterateNewSpaceWeakUnmodifiedRootsForPhantomHandles(
+      RootVisitor* v, WeakSlotCallbackWithHeap should_reset_handle);
 
   // Identify unmodified objects that are in weak state and marks them
   // unmodified
@@ -200,7 +186,7 @@ class GlobalHandles {
 
   // Helpers for PostGarbageCollectionProcessing.
   static void InvokeSecondPassPhantomCallbacks(
-      List<PendingPhantomCallback>* callbacks, Isolate* isolate);
+      std::vector<PendingPhantomCallback>* callbacks, Isolate* isolate);
   int PostScavengeProcessing(int initial_post_gc_processing_count);
   int PostMarkSweepProcessing(int initial_post_gc_processing_count);
   int DispatchPendingPhantomCallbacks(bool synchronous_second_pass);
@@ -224,13 +210,13 @@ class GlobalHandles {
 
   // Contains all nodes holding new space objects. Note: when the list
   // is accessed, some of the objects may have been promoted already.
-  List<Node*> new_space_nodes_;
+  std::vector<Node*> new_space_nodes_;
 
   int post_gc_processing_count_;
 
   size_t number_of_phantom_handle_resets_;
 
-  List<PendingPhantomCallback> pending_phantom_callbacks_;
+  std::vector<PendingPhantomCallback> pending_phantom_callbacks_;
 
   friend class Isolate;
 
@@ -304,9 +290,9 @@ class EternalHandles {
   }
 
   // Iterates over all handles.
-  void IterateAllRoots(ObjectVisitor* visitor);
+  void IterateAllRoots(RootVisitor* visitor);
   // Iterates over all handles which might be in new space.
-  void IterateNewSpaceRoots(ObjectVisitor* visitor);
+  void IterateNewSpaceRoots(RootVisitor* visitor);
   // Rebuilds new space list.
   void PostGarbageCollectionProcessing(Heap* heap);
 
@@ -323,8 +309,8 @@ class EternalHandles {
   }
 
   int size_;
-  List<Object**> blocks_;
-  List<int> new_space_indices_;
+  std::vector<Object**> blocks_;
+  std::vector<int> new_space_indices_;
   int singleton_handles_[NUMBER_OF_SINGLETON_HANDLES];
 
   DISALLOW_COPY_AND_ASSIGN(EternalHandles);

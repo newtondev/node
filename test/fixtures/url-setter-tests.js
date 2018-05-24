@@ -1,7 +1,8 @@
 'use strict';
 
-/* WPT Refs:
-   https://github.com/w3c/web-platform-tests/blob/3eff1bd/url/setters_tests.json
+/* The following tests are copied from WPT. Modifications to them should be
+   upstreamed first. Refs:
+   https://github.com/w3c/web-platform-tests/blob/f0fe479/url/setters_tests.json
    License: http://www.w3.org/Consortium/Legal/2008/04-testsuite-copyright.html
 */
 module.exports =
@@ -265,6 +266,16 @@ module.exports =
             "expected": {
                 "href": "view-source+data:text/html,<p>Test",
                 "protocol": "view-source+data:"
+            }
+        },
+        {
+            "comment": "Port is set to null if it is the default for new scheme.",
+            "href": "http://foo.com:443/",
+            "new_value": "https",
+            "expected": {
+                "href": "https://foo.com/",
+                "protocol": "https:",
+                "port": ""
             }
         }
     ],
@@ -714,6 +725,17 @@ module.exports =
                 "host": "example.com:80",
                 "hostname": "example.com",
                 "port": "80"
+            }
+        },
+        {
+            "comment": "Port number is removed if new port is scheme default and existing URL has a non-default port",
+            "href": "http://example.net:8080",
+            "new_value": "example.com:80",
+            "expected": {
+                "href": "http://example.com/",
+                "host": "example.com",
+                "hostname": "example.com",
+                "port": ""
             }
         },
         {
@@ -1783,12 +1805,52 @@ module.exports =
             }
         },
         {
+            "href": "http://example.net",
+            "new_value": "#foo bar",
+            "expected": {
+                "href": "http://example.net/#foo%20bar",
+                "hash": "#foo%20bar"
+            }
+        },
+        {
+            "href": "http://example.net",
+            "new_value": "#foo\"bar",
+            "expected": {
+                "href": "http://example.net/#foo%22bar",
+                "hash": "#foo%22bar"
+            }
+        },
+        {
+            "href": "http://example.net",
+            "new_value": "#foo<bar",
+            "expected": {
+                "href": "http://example.net/#foo%3Cbar",
+                "hash": "#foo%3Cbar"
+            }
+        },
+        {
+            "href": "http://example.net",
+            "new_value": "#foo>bar",
+            "expected": {
+                "href": "http://example.net/#foo%3Ebar",
+                "hash": "#foo%3Ebar"
+            }
+        },
+        {
+            "href": "http://example.net",
+            "new_value": "#foo`bar",
+            "expected": {
+                "href": "http://example.net/#foo%60bar",
+                "hash": "#foo%60bar"
+            }
+        },
+        {
             "comment": "Simple percent-encoding; nuls, tabs, and newlines are removed",
             "href": "a:/",
             "new_value": "\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~\u007f\u0080\u0081Éé",
             "expected": {
-                "href": "a:/#%01%1F !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~%7F%C2%80%C2%81%C3%89%C3%A9",
-                "hash": "#%01%1F !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~%7F%C2%80%C2%81%C3%89%C3%A9"
+                "href": "a:/#%01%1F%20!%22#$%&'()*+,-./09:;%3C=%3E?@AZ[\\]^_%60az{|}~%7F%C2%80%C2%81%C3%89%C3%A9",
+                "hash": "#%01%1F%20!%22#$%&'()*+,-./09:;%3C=%3E?@AZ[\\]^_%60az{|}~%7F%C2%80%C2%81%C3%89%C3%A9"
             }
         },
         {

@@ -11,6 +11,7 @@ group("gn_all") {
   deps = [
     ":default_tests",
     "inspector:inspector-test",
+    "mkgrokdump:mkgrokdump",
   ]
 
   if (host_os != "mac" || !is_android) {
@@ -27,6 +28,7 @@ group("gn_all") {
       ":benchmarks_run",
       ":bot_default_run",
       ":default_run",
+      ":d8_default_run",
       ":mozilla_run",
       "test262:test262_run",
     ]
@@ -43,13 +45,16 @@ group("default_tests") {
   if (v8_test_isolation_mode != "noop") {
     deps = [
       ":cctest_run",
+      ":debugger_run",
       ":fuzzer_run",
       ":inspector-test_run",
       ":intl_run",
       ":message_run",
       ":mjsunit_run",
+      ":mkgrokdump_run",
       ":preparser_run",
       ":unittests_run",
+      ":wasm_spec_tests_run",
     ]
   }
 }
@@ -69,6 +74,19 @@ v8_isolate_run("default") {
   ]
 
   isolate = "default.isolate"
+}
+
+v8_isolate_run("d8_default") {
+  deps = [
+    ":debugger_run",
+    ":intl_run",
+    ":message_run",
+    ":mjsunit_run",
+    ":preparser_run",
+    ":webkit_run",
+  ]
+
+  isolate = "d8_default.isolate"
 }
 
 v8_isolate_run("optimize_for_size") {
@@ -120,12 +138,19 @@ v8_isolate_run("cctest_exe") {
   isolate = "cctest/cctest_exe.isolate"
 }
 
+v8_isolate_run("debugger") {
+  deps = [
+    "..:d8_run",
+  ]
+
+  isolate = "debugger/debugger.isolate"
+}
+
 v8_isolate_run("fuzzer") {
   deps = [
     "..:v8_simple_json_fuzzer",
     "..:v8_simple_parser_fuzzer",
     "..:v8_simple_regexp_fuzzer",
-    "..:v8_simple_wasm_asmjs_fuzzer",
     "..:v8_simple_wasm_fuzzer",
   ]
 
@@ -164,6 +189,14 @@ v8_isolate_run("mjsunit") {
   isolate = "mjsunit/mjsunit.isolate"
 }
 
+v8_isolate_run("mkgrokdump") {
+  deps = [
+    "mkgrokdump:mkgrokdump",
+  ]
+
+  isolate = "mkgrokdump/mkgrokdump.isolate"
+}
+
 v8_isolate_run("mozilla") {
   deps = [
     "..:d8_run",
@@ -186,6 +219,14 @@ v8_isolate_run("unittests") {
   ]
 
   isolate = "unittests/unittests.isolate"
+}
+
+v8_isolate_run("wasm_spec_tests") {
+  deps = [
+    "..:d8_run",
+  ]
+
+  isolate = "wasm-spec-tests/wasm-spec-tests.isolate"
 }
 
 v8_isolate_run("webkit") {

@@ -5,9 +5,8 @@
 #ifndef V8_FIELD_TYPE_H_
 #define V8_FIELD_TYPE_H_
 
-#include "src/ast/ast-types.h"
 #include "src/objects.h"
-#include "src/ostreams.h"
+#include "src/objects/map.h"
 
 namespace v8 {
 namespace internal {
@@ -41,7 +40,6 @@ class FieldType : public Object {
   bool NowStable();
   bool NowIs(FieldType* other);
   bool NowIs(Handle<FieldType> other);
-  AstType* Convert(Zone* zone);
 
   void PrintTo(std::ostream& os);
 };

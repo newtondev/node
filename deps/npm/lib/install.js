@@ -106,6 +106,8 @@ var mkdirp = require('mkdirp')
 var rimraf = require('rimraf')
 var iferr = require('iferr')
 var validate = require('aproba')
+var uniq = require('lodash.uniq')
+var Bluebird = require('bluebird')
 
 // npm internal utils
 var npm = require('./npm.js')
@@ -132,6 +134,7 @@ var decomposeActions = require('./install/decompose-actions.js')
 var validateTree = require('./install/validate-tree.js')
 var validateArgs = require('./install/validate-args.js')
 var saveRequested = require('./install/save.js').saveRequested
+var saveShrinkwrap = require('./install/save.js').saveShrinkwrap
 var getSaveType = require('./install/save.js').getSaveType
 var doSerialActions = require('./install/actions.js').doSerial
 var doReverseSerialActions = require('./install/actions.js').doReverseSerial
@@ -199,8 +202,9 @@ function install (where, args, cb) {
   new Installer(where, dryrun, args).run(cb)
 }
 
-function Installer (where, dryrun, args) {
-  validate('SBA', arguments)
+function Installer (where, dryrun, args, opts) {
+  validate('SBA|SBAO', arguments)
+  if (!opts) opts = {}
   this.where = where
   this.dryrun = dryrun
   this.args = args
@@ -208,7 +212,6 @@ function Installer (where, dryrun, args) {
   // the only exist when the tree does not match the lockfile
   // this is fine when doing full tree installs/updates but not ok when modifying only
   // a few deps via `npm install` or `npm uninstall`.
-  this.fakeChildren = true
   this.currentTree = null
   this.idealTree = null
   this.differences = []
@@ -216,23 +219,40 @@ function Installer (where, dryrun, args) {
   this.progress = {}
   this.noPackageJsonOk = !!args.length
   this.topLevelLifecycles = !args.length
-  this.dev = npm.config.get('dev') || (!/^prod(uction)?$/.test(npm.config.get('only')) && !npm.config.get('production')) || /^dev(elopment)?$/.test(npm.config.get('only'))
-  this.prod = !/^dev(elopment)?$/.test(npm.config.get('only'))
-  this.rollback = npm.config.get('rollback')
-  this.link = npm.config.get('link')
-  this.global = this.where === path.resolve(npm.globalDir, '..')
+
+  const dev = npm.config.get('dev')
+  const only = npm.config.get('only')
+  const onlyProd = /^prod(uction)?$/.test(only)
+  const onlyDev = /^dev(elopment)?$/.test(only)
+  const prod = npm.config.get('production')
+  this.dev = opts.dev != null ? opts.dev : dev || (!onlyProd && !prod) || onlyDev
+  this.prod = opts.prod != null ? opts.prod : !onlyDev
+
+  this.packageLockOnly = opts.packageLockOnly != null
+    ? opts.packageLockOnly : npm.config.get('package-lock-only')
+  this.rollback = opts.rollback != null ? opts.rollback : npm.config.get('rollback')
+  this.link = opts.link != null ? opts.link : npm.config.get('link')
+  this.saveOnlyLock = opts.saveOnlyLock
+  this.global = opts.global != null ? opts.global : this.where === path.resolve(npm.globalDir, '..')
   this.started = Date.now()
 }
 Installer.prototype = {}
 
 Installer.prototype.run = function (_cb) {
-  validate('F', arguments)
+  validate('F|', arguments)
 
-  var cb = function (err) {
-    saveMetrics(!err)
-    return _cb.apply(this, arguments)
+  var result
+  var cb
+  if (_cb) {
+    cb = function (err) {
+      saveMetrics(!err)
+      return _cb.apply(this, arguments)
+    }
+  } else {
+    result = new Promise((resolve, reject) => {
+      cb = (err, value) => err ? reject(err) : resolve(value)
+    })
   }
-
   // FIXME: This is bad and I should feel bad.
   // lib/install needs to have some way of sharing _limited_
   // state with the things it calls. Passing the object is too
@@ -275,7 +295,11 @@ Installer.prototype.run = function (_cb) {
 
     [this, this.debugActions, 'diffTrees', 'differences'],
     [this, this.debugActions, 'decomposeActions', 'todo'])
-  if (!this.dryrun) {
+
+  if (this.packageLockOnly) {
+    postInstallSteps.push(
+      [this, this.saveToDependencies])
+  } else if (!this.dryrun) {
     installSteps.push(
       [this.newTracker(log, 'executeActions', 8)],
       [this, this.executeActions],
@@ -296,6 +320,8 @@ Installer.prototype.run = function (_cb) {
         // this is necessary as we don't fill in `dependencies` and `devDependencies` in deps loaded from shrinkwrap
         // until after we extract them
         [this, (next) => { computeMetadata(this.idealTree); next() }],
+        [this, this.pruneIdealTree],
+        [this, this.debugLogicalTree, 'saveTree', 'idealTree'],
         [this, this.saveToDependencies])
     }
   }
@@ -319,12 +345,12 @@ Installer.prototype.run = function (_cb) {
       cb(installEr || postInstallEr, self.getInstalledModules(), self.idealTree)
     })
   })
+  return result
 }
 
 Installer.prototype.loadArgMetadata = function (next) {
   getAllMetadata(this.args, this.currentTree, process.cwd(), iferr(next, (args) => {
     this.args = args
-    if (args.length) this.fakeChildren = false
     next()
   }))
 }
@@ -371,12 +397,16 @@ Installer.prototype.normalizeCurrentTree = function (cb) {
       }
     }
   }
+  computeMetadata(this.currentTree)
   return cb()
 
-  function normalizeTree (tree) {
+  function normalizeTree (tree, seen) {
+    if (!seen) seen = new Set()
+    if (seen.has(tree)) return
+    seen.add(tree)
     createNode(tree)
     tree.location = flatNameFromTree(tree)
-    tree.children.forEach(normalizeTree)
+    tree.children.forEach((child) => normalizeTree(child, seen))
   }
 }
 
@@ -402,8 +432,12 @@ Installer.prototype.loadIdealTree = function (cb) {
 }
 
 Installer.prototype.pruneIdealTree = function (cb) {
+  if (!this.idealTree) return cb()
+  // if our lock file didn't have the requires field and there
+  // are any fake children then forgo pruning until we have more info.
+  if (!this.idealTree.hasRequiresFromLock && this.idealTree.children.some((n) => n.fakeChild)) return cb()
   var toPrune = this.idealTree.children
-    .filter((n) => !n.fakeChild && isExtraneous(n))
+    .filter(isExtraneous)
     .map((n) => ({name: moduleName(n)}))
   return removeExtraneous(toPrune, this.idealTree, cb)
 }
@@ -417,14 +451,14 @@ Installer.prototype.loadAllDepsIntoIdealTree = function (cb) {
   var installNewModules = !!this.args.length
   var steps = []
 
-  const depsToPreload = Object.assign({},
-    this.dev ? this.idealTree.package.devDependencies : {},
-    this.prod ? this.idealTree.package.dependencies : {}
-  )
   if (installNewModules) {
     steps.push([validateArgs, this.idealTree, this.args])
     steps.push([loadRequestedDeps, this.args, this.idealTree, saveDeps, cg.newGroup('loadRequestedDeps')])
   } else {
+    const depsToPreload = Object.assign({},
+      this.dev ? this.idealTree.package.devDependencies : {},
+      this.prod ? this.idealTree.package.dependencies : {}
+    )
     if (this.prod || this.dev) {
       steps.push(
         [prefetchDeps, this.idealTree, depsToPreload, cg.newGroup('prefetchDeps')])
@@ -513,7 +547,8 @@ Installer.prototype.executeActions = function (cb) {
     [lock, node_modules, '.staging'],
     [rimraf, staging],
     [doParallelActions, 'extract', staging, todo, cg.newGroup('extract', 100)],
-    [doReverseSerialActions, 'remove', staging, todo, cg.newGroup('remove')],
+    [doReverseSerialActions, 'unbuild', staging, todo, cg.newGroup('unbuild')],
+    [doSerialActions, 'remove', staging, todo, cg.newGroup('remove')],
     [doSerialActions, 'move', staging, todo, cg.newGroup('move')],
     [doSerialActions, 'finalize', staging, todo, cg.newGroup('finalize')],
     [doParallelActions, 'refresh-package-json', staging, todo, cg.newGroup('refresh-package-json')],
@@ -536,17 +571,15 @@ Installer.prototype.executeActions = function (cb) {
 
 Installer.prototype.rollbackFailedOptional = function (staging, actionsToRun, cb) {
   if (!this.rollback) return cb()
-  var failed = actionsToRun.map(function (action) {
+  var failed = uniq(actionsToRun.map(function (action) {
     return action[1]
   }).filter(function (pkg) {
     return pkg.failed && pkg.rollback
-  })
+  }))
   var top = this.currentTree && this.currentTree.path
-  asyncMap(failed, function (pkg, next) {
-    asyncMap(pkg.rollback, function (rollback, done) {
-      rollback(top, staging, pkg, done)
-    }, next)
-  }, cb)
+  Bluebird.map(failed, (pkg) => {
+    return Bluebird.map(pkg.rollback, (rollback) => rollback(top, staging, pkg))
+  }).asCallback(cb)
 }
 
 Installer.prototype.commit = function (staging, actionsToRun, cb) {
@@ -601,7 +634,11 @@ Installer.prototype.saveToDependencies = function (cb) {
   validate('F', arguments)
   if (this.failing) return cb()
   log.silly('install', 'saveToDependencies')
-  saveRequested(this.idealTree, cb)
+  if (this.saveOnlyLock) {
+    saveShrinkwrap(this.idealTree, cb)
+  } else {
+    saveRequested(this.idealTree, cb)
+  }
 }
 
 Installer.prototype.readGlobalPackageData = function (cb) {
@@ -675,7 +712,7 @@ function isLink (child) {
 Installer.prototype.loadShrinkwrap = function (cb) {
   validate('F', arguments)
   log.silly('install', 'loadShrinkwrap')
-  readShrinkwrap.andInflate(this.idealTree, {fakeChildren: this.fakeChildren}, cb)
+  readShrinkwrap.andInflate(this.idealTree, cb)
 }
 
 Installer.prototype.getInstalledModules = function () {
@@ -713,7 +750,16 @@ Installer.prototype.printInstalled = function (cb) {
   validate('F', arguments)
   if (this.failing) return cb()
   log.silly('install', 'printInstalled')
-  const diffs = this.differences.concat((this.idealTree.removedChildren || []).map((r) => ['remove', r]))
+  const diffs = this.differences
+  if (!this.idealTree.error && this.idealTree.removedChildren) {
+    const deps = this.currentTree.package.dependencies || {}
+    const dev = this.currentTree.package.devDependencies || {}
+    this.idealTree.removedChildren.forEach((r) => {
+      if (diffs.some((d) => d[0] === 'remove' && d[1].path === r.path)) return
+      if (!deps[moduleName(r)] && !dev[moduleName(r)]) return
+      diffs.push(['remove', r])
+    })
+  }
   if (npm.config.get('json')) {
     return this.printInstalledForJSON(diffs, cb)
   } else if (npm.config.get('parseable')) {
@@ -730,6 +776,8 @@ Installer.prototype.printInstalledForHuman = function (diffs, cb) {
   var moved = 0
   diffs.forEach(function (action) {
     var mutation = action[0]
+    var pkg = action[1]
+    if (pkg.failed) return
     if (mutation === 'remove') {
       ++removed
     } else if (mutation === 'move') {
@@ -868,21 +916,43 @@ Installer.prototype.debugActions = function (name, actionListName, cb) {
 // to define the arguments for use by chain before the property exists yet.
 Installer.prototype.debugTree = function (name, treeName, cb) {
   validate('SSF', arguments)
-  log.silly(name, this.prettify(this[treeName]).trim())
+  log.silly(name, this.archyDebugTree(this[treeName]).trim())
   cb()
 }
 
-Installer.prototype.prettify = function (tree) {
+Installer.prototype.archyDebugTree = function (tree) {
   validate('O', arguments)
-  var seen = {}
+  var seen = new Set()
   function byName (aa, bb) {
     return packageId(aa).localeCompare(packageId(bb))
   }
   function expandTree (tree) {
-    seen[tree.path] = true
+    seen.add(tree)
     return {
       label: packageId(tree),
-      nodes: tree.children.filter((tree) => { return !seen[tree.path] && !tree.removed && !tree.failed }).sort(byName).map(expandTree)
+      nodes: tree.children.filter((tree) => { return !seen.has(tree) && !tree.removed }).sort(byName).map(expandTree)
+    }
+  }
+  return archy(expandTree(tree), '', { unicode: npm.config.get('unicode') })
+}
+
+Installer.prototype.debugLogicalTree = function (name, treeName, cb) {
+  validate('SSF', arguments)
+  this[treeName] && log.silly(name, this.archyDebugLogicalTree(this[treeName]).trim())
+  cb()
+}
+
+Installer.prototype.archyDebugLogicalTree = function (tree) {
+  validate('O', arguments)
+  var seen = new Set()
+  function byName (aa, bb) {
+    return packageId(aa).localeCompare(packageId(bb))
+  }
+  function expandTree (tree) {
+    seen.add(tree)
+    return {
+      label: packageId(tree),
+      nodes: tree.requires.filter((tree) => { return !seen.has(tree) && !tree.removed }).sort(byName).map(expandTree)
     }
   }
   return archy(expandTree(tree), '', { unicode: npm.config.get('unicode') })

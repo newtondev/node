@@ -119,7 +119,7 @@ PPERF_COUNTERSET_INSTANCE perfctr_instance;
 namespace node {
 
 
-EXTERN_C DECLSPEC_SELECTANY HANDLE NodeCounterProvider = nullptr;
+HANDLE NodeCounterProvider = nullptr;
 
 void InitPerfCountersWin32() {
   ULONG status;
@@ -180,7 +180,7 @@ void InitPerfCountersWin32() {
 
     status = perfctr_setCounterSetInfo(NodeCounterProvider,
                                        &NodeCounterSetInfo.CounterSet,
-                                       sizeof(NodeCounterSetInfo));
+                                       sizeof(NodeCounterSetInfo.CounterSet));
     if (status != ERROR_SUCCESS) {
       perfctr_stopProvider(NodeCounterProvider);
       NodeCounterProvider = nullptr;

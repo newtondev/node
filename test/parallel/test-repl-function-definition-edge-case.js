@@ -1,11 +1,9 @@
 // Reference: https://github.com/nodejs/node/pull/7624
 'use strict';
-const common = require('../common');
+require('../common');
 const assert = require('assert');
 const repl = require('repl');
 const stream = require('stream');
-
-common.globalCheck = false;
 
 const r = initRepl();
 
@@ -19,7 +17,7 @@ assert.strictEqual(got, expected);
 
 function initRepl() {
   const input = new stream();
-  input.write = input.pause = input.resume = common.noop;
+  input.write = input.pause = input.resume = () => {};
   input.readable = true;
 
   const output = new stream();

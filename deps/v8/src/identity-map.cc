@@ -11,7 +11,7 @@ namespace v8 {
 namespace internal {
 
 static const int kInitialIdentityMapSize = 4;
-static const int kResizeFactor = 4;
+static const int kResizeFactor = 2;
 
 IdentityMapBase::~IdentityMapBase() {
   // Clear must be called by the subclass to avoid calling the virtual
@@ -66,6 +66,8 @@ int IdentityMapBase::InsertKey(Object* address) {
     for (int index = start; --limit > 0; index = (index + 1) & mask_) {
       if (keys_[index] == address) return index;  // Found.
       if (keys_[index] == not_mapped) {           // Free entry.
+        size_++;
+        DCHECK_LE(size_, capacity_);
         keys_[index] = address;
         return index;
       }
@@ -74,7 +76,6 @@ int IdentityMapBase::InsertKey(Object* address) {
     Resize(capacity_ * kResizeFactor);
   }
   UNREACHABLE();
-  return -1;
 }
 
 void* IdentityMapBase::DeleteIndex(int index) {
@@ -86,7 +87,8 @@ void* IdentityMapBase::DeleteIndex(int index) {
   size_--;
   DCHECK_GE(size_, 0);
 
-  if (size_ * kResizeFactor < capacity_ / kResizeFactor) {
+  if (capacity_ > kInitialIdentityMapSize &&
+      size_ * kResizeFactor < capacity_ / kResizeFactor) {
     Resize(capacity_ / kResizeFactor);
     return ret_value;  // No need to fix collisions as resize reinserts keys.
   }
@@ -133,8 +135,6 @@ int IdentityMapBase::LookupOrInsert(Object* key) {
     // Miss; rehash if there was a GC, then insert.
     if (gc_counter_ != heap_->gc_count()) Rehash();
     index = InsertKey(key);
-    size_++;
-    DCHECK_LE(size_, capacity_);
   }
   DCHECK_GE(index, 0);
   return index;
@@ -195,6 +195,14 @@ void* IdentityMapBase::DeleteEntry(Object* key) {
   return DeleteIndex(index);
 }
 
+Object* IdentityMapBase::KeyAtIndex(int index) const {
+  DCHECK_LE(0, index);
+  DCHECK_LT(index, capacity_);
+  DCHECK_NE(keys_[index], heap_->not_mapped_symbol());
+  CHECK(is_iterable());  // Must be iterable to access by index;
+  return keys_[index];
+}
+
 IdentityMapBase::RawEntry IdentityMapBase::EntryAtIndex(int index) const {
   DCHECK_LE(0, index);
   DCHECK_LT(index, capacity_);
@@ -237,6 +245,7 @@ void IdentityMapBase::Rehash() {
         keys_[i] = not_mapped;
         values_[i] = nullptr;
         last_empty = i;
+        size_--;
       }
     }
   }
@@ -259,6 +268,7 @@ void IdentityMapBase::Resize(int new_capacity) {
   capacity_ = new_capacity;
   mask_ = capacity_ - 1;
   gc_counter_ = heap_->gc_count();
+  size_ = 0;
 
   keys_ = reinterpret_cast<Object**>(NewPointerArray(capacity_));
   Object* not_mapped = heap_->not_mapped_symbol();

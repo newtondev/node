@@ -33,12 +33,13 @@
 #include "src/debug/debug.h"
 #include "src/disasm.h"
 #include "src/disassembler.h"
+#include "src/frames-inl.h"
 #include "src/macro-assembler.h"
 #include "src/objects-inl.h"
 #include "test/cctest/cctest.h"
 
-using namespace v8::internal;
-
+namespace v8 {
+namespace internal {
 
 #define __ assm.
 
@@ -46,6 +47,26 @@ using namespace v8::internal;
 static void DummyStaticFunction(Object* result) {
 }
 
+void Disassemble(FILE* f, byte* begin, byte* end) {
+  disasm::NameConverter converter;
+  disasm::Disassembler d(converter);
+  for (byte* pc = begin; pc < end;) {
+    v8::internal::EmbeddedVector<char, 128> buffer;
+    buffer[0] = '\0';
+    byte* prev_pc = pc;
+    pc += d.InstructionDecodeForTesting(buffer, pc);
+    fprintf(f, "%p", static_cast<void*>(prev_pc));
+    fprintf(f, "    ");
+
+    for (byte* bp = prev_pc; bp < pc; bp++) {
+      fprintf(f, "%02x", *bp);
+    }
+    for (int i = 6 - static_cast<int>(pc - prev_pc); i >= 0; i--) {
+      fprintf(f, "  ");
+    }
+    fprintf(f, "  %s\n", buffer.start());
+  }
+}
 
 TEST(DisasmX64) {
   CcTest::InitializeVM();
@@ -53,7 +74,7 @@ TEST(DisasmX64) {
   HandleScope scope(isolate);
   v8::internal::byte buffer[8192];
   Assembler assm(isolate, buffer, sizeof buffer);
-  DummyStaticFunction(NULL);  // just bloody use it (DELETE; debugging)
+  DummyStaticFunction(nullptr);  // just bloody use it (DELETE; debugging)
 
   // Short immediate instructions
   __ addq(rax, Immediate(12345678));
@@ -284,7 +305,7 @@ TEST(DisasmX64) {
   // TODO(mstarzinger): The following is protected.
   // __ call(Operand(rbx, rcx, times_4, 10000));
   __ nop();
-  Handle<Code> ic(CodeFactory::LoadIC(isolate).code());
+  Handle<Code> ic = BUILTIN_CODE(isolate, LoadIC);
   __ call(ic, RelocInfo::CODE_TARGET);
   __ nop();
   __ nop();
@@ -385,6 +406,10 @@ TEST(DisasmX64) {
     __ cvtsd2ss(xmm0, xmm1);
     __ cvtsd2ss(xmm0, Operand(rbx, rcx, times_4, 10000));
     __ movaps(xmm0, xmm1);
+    __ movdqa(xmm0, Operand(rsp, 12));
+    __ movdqa(Operand(rsp, 12), xmm0);
+    __ movdqu(xmm0, Operand(rsp, 12));
+    __ movdqu(Operand(rsp, 12), xmm0);
     __ shufps(xmm0, xmm9, 0x0);
 
     // logic operation
@@ -450,6 +475,8 @@ TEST(DisasmX64) {
     __ maxsd(xmm1, xmm0);
     __ maxsd(xmm1, Operand(rbx, rcx, times_4, 10000));
     __ ucomisd(xmm0, xmm1);
+    __ haddps(xmm1, xmm0);
+    __ haddps(xmm1, Operand(rbx, rcx, times_4, 10000));
 
     __ andpd(xmm0, xmm1);
     __ andpd(xmm0, Operand(rbx, rcx, times_4, 10000));
@@ -468,6 +495,9 @@ TEST(DisasmX64) {
     __ punpckldq(xmm1, xmm11);
     __ punpckldq(xmm5, Operand(rdx, 4));
     __ punpckhdq(xmm8, xmm15);
+
+    __ pshuflw(xmm2, xmm4, 3);
+    __ pshufhw(xmm1, xmm9, 6);
 
 #define EMIT_SSE2_INSTR(instruction, notUsed1, notUsed2, notUsed3) \
   __ instruction(xmm5, xmm1);                                      \
@@ -521,6 +551,7 @@ TEST(DisasmX64) {
       __ insertps(xmm5, xmm1, 123);
       __ extractps(rax, xmm1, 0);
       __ pextrw(rbx, xmm2, 1);
+      __ pinsrw(xmm2, rcx, 1);
       __ pextrd(rbx, xmm15, 0);
       __ pextrd(r12, xmm0, 1);
       __ pinsrd(xmm9, r9, 0);
@@ -940,17 +971,20 @@ TEST(DisasmX64) {
   __ ret(0);
 
   CodeDesc desc;
-  assm.GetCode(&desc);
-  Handle<Code> code = isolate->factory()->NewCode(
-      desc, Code::ComputeFlags(Code::STUB), Handle<Code>());
+  assm.GetCode(isolate, &desc);
+  Handle<Code> code =
+      isolate->factory()->NewCode(desc, Code::STUB, Handle<Code>());
   USE(code);
 #ifdef OBJECT_PRINT
   OFStream os(stdout);
   code->Print(os);
   byte* begin = code->instruction_start();
   byte* end = begin + code->instruction_size();
-  disasm::Disassembler::Disassemble(stdout, begin, end);
+  Disassemble(stdout, begin, end);
 #endif
 }
 
 #undef __
+
+}  // namespace internal
+}  // namespace v8

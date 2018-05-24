@@ -4,9 +4,10 @@ const common = require('../common');
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
-const d = path.join(common.tmpDir, 'dir');
+const tmpdir = require('../common/tmpdir');
+const d = path.join(tmpdir.path, 'dir');
 
-common.refreshTmpDir();
+tmpdir.refresh();
 
 // Make sure the directory does not exist
 assert(!common.fileExists(d));
@@ -24,14 +25,16 @@ fs.rmdirSync(d);
 assert(!common.fileExists(d));
 
 // Similarly test the Async version
-fs.mkdir(d, 0o666, function(err) {
+fs.mkdir(d, 0o666, common.mustCall(function(err) {
   assert.ifError(err);
 
-  fs.mkdir(d, 0o666, function(err) {
-    assert.ok(err.message.match(/^EEXIST/), 'got EEXIST message');
-    assert.strictEqual(err.code, 'EEXIST', 'got EEXIST code');
-    assert.strictEqual(err.path, d, 'got proper path for EEXIST');
+  fs.mkdir(d, 0o666, common.mustCall(function(err) {
+    assert.strictEqual(this, undefined);
+    assert.ok(err, 'got no error');
+    assert.ok(/^EEXIST/.test(err.message), 'got no EEXIST message');
+    assert.strictEqual(err.code, 'EEXIST');
+    assert.strictEqual(err.path, d);
 
     fs.rmdir(d, assert.ifError);
-  });
-});
+  }));
+}));

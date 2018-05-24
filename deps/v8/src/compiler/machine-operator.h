@@ -9,6 +9,7 @@
 #include "src/base/flags.h"
 #include "src/globals.h"
 #include "src/machine-type.h"
+#include "src/utils.h"
 
 namespace v8 {
 namespace internal {
@@ -82,18 +83,29 @@ typedef MachineRepresentation UnalignedStoreRepresentation;
 UnalignedStoreRepresentation const& UnalignedStoreRepresentationOf(
     Operator const*);
 
-// A CheckedLoad needs a MachineType.
-typedef MachineType CheckedLoadRepresentation;
+class StackSlotRepresentation final {
+ public:
+  StackSlotRepresentation(int size, int alignment)
+      : size_(size), alignment_(alignment) {}
 
-CheckedLoadRepresentation CheckedLoadRepresentationOf(Operator const*);
+  int size() const { return size_; }
+  int alignment() const { return alignment_; }
 
+ private:
+  int size_;
+  int alignment_;
+};
 
-// A CheckedStore needs a MachineType.
-typedef MachineRepresentation CheckedStoreRepresentation;
+V8_EXPORT_PRIVATE bool operator==(StackSlotRepresentation,
+                                  StackSlotRepresentation);
+bool operator!=(StackSlotRepresentation, StackSlotRepresentation);
 
-CheckedStoreRepresentation CheckedStoreRepresentationOf(Operator const*);
+size_t hash_value(StackSlotRepresentation);
 
-int StackSlotSizeOf(Operator const* op);
+V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
+                                           StackSlotRepresentation);
+
+StackSlotRepresentation const& StackSlotRepresentationOf(Operator const* op);
 
 MachineRepresentation AtomicStoreRepresentationOf(Operator const* op);
 
@@ -131,13 +143,15 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
     kWord64ReverseBytes = 1u << 19,
     kInt32AbsWithOverflow = 1u << 20,
     kInt64AbsWithOverflow = 1u << 21,
+    kSpeculationFence = 1u << 22,
     kAllOptionalOps =
         kFloat32RoundDown | kFloat64RoundDown | kFloat32RoundUp |
         kFloat64RoundUp | kFloat32RoundTruncate | kFloat64RoundTruncate |
         kFloat64RoundTiesAway | kFloat32RoundTiesEven | kFloat64RoundTiesEven |
         kWord32Ctz | kWord64Ctz | kWord32Popcnt | kWord64Popcnt |
         kWord32ReverseBits | kWord64ReverseBits | kWord32ReverseBytes |
-        kWord64ReverseBytes | kInt32AbsWithOverflow | kInt64AbsWithOverflow
+        kWord64ReverseBytes | kInt32AbsWithOverflow | kInt64AbsWithOverflow |
+        kSpeculationFence
   };
   typedef base::Flags<Flag, unsigned> Flags;
 
@@ -145,16 +159,12 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
    public:
     enum UnalignedAccessSupport { kNoSupport, kSomeSupport, kFullSupport };
 
-    bool IsUnalignedLoadSupported(const MachineType& machineType,
-                                  uint8_t alignment) const {
-      return IsUnalignedSupported(unalignedLoadUnsupportedTypes_, machineType,
-                                  alignment);
+    bool IsUnalignedLoadSupported(MachineRepresentation rep) const {
+      return IsUnalignedSupported(unalignedLoadUnsupportedTypes_, rep);
     }
 
-    bool IsUnalignedStoreSupported(const MachineType& machineType,
-                                   uint8_t alignment) const {
-      return IsUnalignedSupported(unalignedStoreUnsupportedTypes_, machineType,
-                                  alignment);
+    bool IsUnalignedStoreSupported(MachineRepresentation rep) const {
+      return IsUnalignedSupported(unalignedStoreUnsupportedTypes_, rep);
     }
 
     static AlignmentRequirements FullUnalignedAccessSupport() {
@@ -164,8 +174,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
       return AlignmentRequirements(kNoSupport);
     }
     static AlignmentRequirements SomeUnalignedAccessUnsupported(
-        const Vector<MachineType>& unalignedLoadUnsupportedTypes,
-        const Vector<MachineType>& unalignedStoreUnsupportedTypes) {
+        EnumSet<MachineRepresentation> unalignedLoadUnsupportedTypes,
+        EnumSet<MachineRepresentation> unalignedStoreUnsupportedTypes) {
       return AlignmentRequirements(kSomeSupport, unalignedLoadUnsupportedTypes,
                                    unalignedStoreUnsupportedTypes);
     }
@@ -173,36 +183,32 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
    private:
     explicit AlignmentRequirements(
         AlignmentRequirements::UnalignedAccessSupport unalignedAccessSupport,
-        Vector<MachineType> unalignedLoadUnsupportedTypes =
-            Vector<MachineType>(NULL, 0),
-        Vector<MachineType> unalignedStoreUnsupportedTypes =
-            Vector<MachineType>(NULL, 0))
+        EnumSet<MachineRepresentation> unalignedLoadUnsupportedTypes =
+            EnumSet<MachineRepresentation>(),
+        EnumSet<MachineRepresentation> unalignedStoreUnsupportedTypes =
+            EnumSet<MachineRepresentation>())
         : unalignedSupport_(unalignedAccessSupport),
           unalignedLoadUnsupportedTypes_(unalignedLoadUnsupportedTypes),
           unalignedStoreUnsupportedTypes_(unalignedStoreUnsupportedTypes) {}
 
-    bool IsUnalignedSupported(const Vector<MachineType>& unsupported,
-                              const MachineType& machineType,
-                              uint8_t alignment) const {
+    bool IsUnalignedSupported(EnumSet<MachineRepresentation> unsupported,
+                              MachineRepresentation rep) const {
       // All accesses of bytes in memory are aligned.
-      DCHECK_NE(machineType.representation(), MachineRepresentation::kWord8);
-      if (unalignedSupport_ == kFullSupport) {
-        return true;
-      } else if (unalignedSupport_ == kNoSupport) {
-        return false;
-      } else {
-        for (MachineType m : unsupported) {
-          if (m == machineType) {
-            return false;
-          }
-        }
-        return true;
+      DCHECK_NE(MachineRepresentation::kWord8, rep);
+      switch (unalignedSupport_) {
+        case kFullSupport:
+          return true;
+        case kNoSupport:
+          return false;
+        case kSomeSupport:
+          return !unsupported.Contains(rep);
       }
+      UNREACHABLE();
     }
 
     const AlignmentRequirements::UnalignedAccessSupport unalignedSupport_;
-    const Vector<MachineType> unalignedLoadUnsupportedTypes_;
-    const Vector<MachineType> unalignedStoreUnsupportedTypes_;
+    const EnumSet<MachineRepresentation> unalignedLoadUnsupportedTypes_;
+    const EnumSet<MachineRepresentation> unalignedStoreUnsupportedTypes_;
   };
 
   explicit MachineOperatorBuilder(
@@ -213,6 +219,7 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
           AlignmentRequirements::FullUnalignedAccessSupport());
 
   const Operator* Comment(const char* msg);
+  const Operator* DebugAbort();
   const Operator* DebugBreak();
   const Operator* UnsafePointerAdd();
 
@@ -234,6 +241,10 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const OptionalOperator Word64ReverseBytes();
   const OptionalOperator Int32AbsWithOverflow();
   const OptionalOperator Int64AbsWithOverflow();
+
+  // Return true if the target's Word32 shift implementation is directly
+  // compatible with JavaScript's specification. Otherwise, we have to manually
+  // generate a mask with 0x1f on the amount ahead of generating the shift.
   bool Word32ShiftIsSafe() const { return flags_ & kWord32ShiftIsSafe; }
 
   const Operator* Word64And();
@@ -339,6 +350,13 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* BitcastInt32ToFloat32();
   const Operator* BitcastInt64ToFloat64();
 
+  // These operators sign-extend to Int32/Int64
+  const Operator* SignExtendWord8ToInt32();
+  const Operator* SignExtendWord16ToInt32();
+  const Operator* SignExtendWord8ToInt64();
+  const Operator* SignExtendWord16ToInt64();
+  const Operator* SignExtendWord32ToInt64();
+
   // Floating point operators always operate with IEEE 754 round-to-nearest
   // (single-precision).
   const Operator* Float32Add();
@@ -441,19 +459,15 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* F32x4UConvertI32x4();
   const Operator* F32x4Abs();
   const Operator* F32x4Neg();
-  const Operator* F32x4Sqrt();
   const Operator* F32x4RecipApprox();
   const Operator* F32x4RecipSqrtApprox();
   const Operator* F32x4Add();
+  const Operator* F32x4AddHoriz();
   const Operator* F32x4Sub();
   const Operator* F32x4Mul();
   const Operator* F32x4Div();
   const Operator* F32x4Min();
   const Operator* F32x4Max();
-  const Operator* F32x4MinNum();
-  const Operator* F32x4MaxNum();
-  const Operator* F32x4RecipRefine();
-  const Operator* F32x4RecipSqrtRefine();
   const Operator* F32x4Eq();
   const Operator* F32x4Ne();
   const Operator* F32x4Lt();
@@ -469,14 +483,15 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I32x4Shl(int32_t);
   const Operator* I32x4ShrS(int32_t);
   const Operator* I32x4Add();
+  const Operator* I32x4AddHoriz();
   const Operator* I32x4Sub();
   const Operator* I32x4Mul();
   const Operator* I32x4MinS();
   const Operator* I32x4MaxS();
   const Operator* I32x4Eq();
   const Operator* I32x4Ne();
-  const Operator* I32x4LtS();
-  const Operator* I32x4LeS();
+  const Operator* I32x4GtS();
+  const Operator* I32x4GeS();
 
   const Operator* I32x4UConvertF32x4();
   const Operator* I32x4UConvertI16x8Low();
@@ -484,8 +499,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I32x4ShrU(int32_t);
   const Operator* I32x4MinU();
   const Operator* I32x4MaxU();
-  const Operator* I32x4LtU();
-  const Operator* I32x4LeU();
+  const Operator* I32x4GtU();
+  const Operator* I32x4GeU();
 
   const Operator* I16x8Splat();
   const Operator* I16x8ExtractLane(int32_t);
@@ -498,6 +513,7 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I16x8SConvertI32x4();
   const Operator* I16x8Add();
   const Operator* I16x8AddSaturateS();
+  const Operator* I16x8AddHoriz();
   const Operator* I16x8Sub();
   const Operator* I16x8SubSaturateS();
   const Operator* I16x8Mul();
@@ -505,8 +521,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I16x8MaxS();
   const Operator* I16x8Eq();
   const Operator* I16x8Ne();
-  const Operator* I16x8LtS();
-  const Operator* I16x8LeS();
+  const Operator* I16x8GtS();
+  const Operator* I16x8GeS();
 
   const Operator* I16x8UConvertI8x16Low();
   const Operator* I16x8UConvertI8x16High();
@@ -516,8 +532,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I16x8SubSaturateU();
   const Operator* I16x8MinU();
   const Operator* I16x8MaxU();
-  const Operator* I16x8LtU();
-  const Operator* I16x8LeU();
+  const Operator* I16x8GtU();
+  const Operator* I16x8GeU();
 
   const Operator* I8x16Splat();
   const Operator* I8x16ExtractLane(int32_t);
@@ -535,8 +551,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I8x16MaxS();
   const Operator* I8x16Eq();
   const Operator* I8x16Ne();
-  const Operator* I8x16LtS();
-  const Operator* I8x16LeS();
+  const Operator* I8x16GtS();
+  const Operator* I8x16GeS();
 
   const Operator* I8x16ShrU(int32_t);
   const Operator* I8x16UConvertI16x8();
@@ -544,8 +560,8 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* I8x16SubSaturateU();
   const Operator* I8x16MinU();
   const Operator* I8x16MaxU();
-  const Operator* I8x16LtU();
-  const Operator* I8x16LeU();
+  const Operator* I8x16GtU();
+  const Operator* I8x16GeU();
 
   const Operator* S128Load();
   const Operator* S128Store();
@@ -555,43 +571,20 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   const Operator* S128Or();
   const Operator* S128Xor();
   const Operator* S128Not();
+  const Operator* S128Select();
 
-  const Operator* S32x4Select();
-  const Operator* S32x4Swizzle(uint32_t);
-  const Operator* S32x4Shuffle();
-  const Operator* S16x8Select();
-  const Operator* S16x8Swizzle(uint32_t);
-  const Operator* S16x8Shuffle();
-  const Operator* S8x16Select();
-  const Operator* S8x16Swizzle(uint32_t);
-  const Operator* S8x16Shuffle();
+  const Operator* S8x16Shuffle(const uint8_t shuffle[16]);
 
-  const Operator* S1x4Zero();
-  const Operator* S1x4And();
-  const Operator* S1x4Or();
-  const Operator* S1x4Xor();
-  const Operator* S1x4Not();
   const Operator* S1x4AnyTrue();
   const Operator* S1x4AllTrue();
-
-  const Operator* S1x8Zero();
-  const Operator* S1x8And();
-  const Operator* S1x8Or();
-  const Operator* S1x8Xor();
-  const Operator* S1x8Not();
   const Operator* S1x8AnyTrue();
   const Operator* S1x8AllTrue();
-
-  const Operator* S1x16Zero();
-  const Operator* S1x16And();
-  const Operator* S1x16Or();
-  const Operator* S1x16Xor();
-  const Operator* S1x16Not();
   const Operator* S1x16AnyTrue();
   const Operator* S1x16AllTrue();
 
   // load [base + index]
   const Operator* Load(LoadRepresentation rep);
+  const Operator* PoisonedLoad(LoadRepresentation rep);
   const Operator* ProtectedLoad(LoadRepresentation rep);
 
   // store [base + index], value
@@ -604,53 +597,50 @@ class V8_EXPORT_PRIVATE MachineOperatorBuilder final
   // unaligned store [base + index], value
   const Operator* UnalignedStore(UnalignedStoreRepresentation rep);
 
-  const Operator* StackSlot(int size);
-  const Operator* StackSlot(MachineRepresentation rep);
+  const Operator* StackSlot(int size, int alignment = 0);
+  const Operator* StackSlot(MachineRepresentation rep, int alignment = 0);
+
+  // Returns a value which can be used as a mask to poison values when executing
+  // speculatively.
+  const Operator* SpeculationPoison();
 
   // Access to the machine stack.
   const Operator* LoadStackPointer();
   const Operator* LoadFramePointer();
   const Operator* LoadParentFramePointer();
 
-  // checked-load heap, index, length
-  const Operator* CheckedLoad(CheckedLoadRepresentation);
-  // checked-store heap, index, length, value
-  const Operator* CheckedStore(CheckedStoreRepresentation);
-
   // atomic-load [base + index]
-  const Operator* AtomicLoad(LoadRepresentation rep);
+  const Operator* Word32AtomicLoad(LoadRepresentation rep);
   // atomic-store [base + index], value
-  const Operator* AtomicStore(MachineRepresentation rep);
+  const Operator* Word32AtomicStore(MachineRepresentation rep);
   // atomic-exchange [base + index], value
-  const Operator* AtomicExchange(MachineType rep);
+  const Operator* Word32AtomicExchange(MachineType rep);
   // atomic-compare-exchange [base + index], old_value, new_value
-  const Operator* AtomicCompareExchange(MachineType rep);
+  const Operator* Word32AtomicCompareExchange(MachineType rep);
   // atomic-add [base + index], value
-  const Operator* AtomicAdd(MachineType rep);
+  const Operator* Word32AtomicAdd(MachineType rep);
   // atomic-sub [base + index], value
-  const Operator* AtomicSub(MachineType rep);
+  const Operator* Word32AtomicSub(MachineType rep);
   // atomic-and [base + index], value
-  const Operator* AtomicAnd(MachineType rep);
+  const Operator* Word32AtomicAnd(MachineType rep);
   // atomic-or [base + index], value
-  const Operator* AtomicOr(MachineType rep);
+  const Operator* Word32AtomicOr(MachineType rep);
   // atomic-xor [base + index], value
-  const Operator* AtomicXor(MachineType rep);
+  const Operator* Word32AtomicXor(MachineType rep);
+
+  const OptionalOperator SpeculationFence();
 
   // Target machine word-size assumed by this builder.
   bool Is32() const { return word() == MachineRepresentation::kWord32; }
   bool Is64() const { return word() == MachineRepresentation::kWord64; }
   MachineRepresentation word() const { return word_; }
 
-  bool UnalignedLoadSupported(const MachineType& machineType,
-                              uint8_t alignment) {
-    return alignment_requirements_.IsUnalignedLoadSupported(machineType,
-                                                            alignment);
+  bool UnalignedLoadSupported(MachineRepresentation rep) {
+    return alignment_requirements_.IsUnalignedLoadSupported(rep);
   }
 
-  bool UnalignedStoreSupported(const MachineType& machineType,
-                               uint8_t alignment) {
-    return alignment_requirements_.IsUnalignedStoreSupported(machineType,
-                                                             alignment);
+  bool UnalignedStoreSupported(MachineRepresentation rep) {
+    return alignment_requirements_.IsUnalignedStoreSupported(rep);
   }
 
 // Pseudo operators that translate to 32/64-bit operators depending on the

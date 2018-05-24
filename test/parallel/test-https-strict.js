@@ -21,26 +21,18 @@
 
 'use strict';
 const common = require('../common');
+const fixtures = require('../common/fixtures');
+if (!common.hasCrypto)
+  common.skip('missing crypto');
+
 // disable strict server certificate validation by the client
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const assert = require('assert');
-
-if (!common.hasCrypto) {
-  common.skip('missing crypto');
-  return;
-}
 const https = require('https');
 
-const fs = require('fs');
-const path = require('path');
-
-function file(fname) {
-  return path.resolve(common.fixturesDir, 'keys', fname);
-}
-
 function read(fname) {
-  return fs.readFileSync(file(fname));
+  return fixtures.readKey(fname);
 }
 
 // key1 is signed by ca1.
@@ -120,11 +112,7 @@ function listening() {
 
 function makeReq(path, port, error, host, ca) {
   pending++;
-  const options = {
-    port: port,
-    path: path,
-    ca: ca
-  };
+  const options = { port, path, ca };
 
   if (!ca) {
     options.agent = agent0;
@@ -142,13 +130,13 @@ function makeReq(path, port, error, host, ca) {
   }
 
   if (host) {
-    options.headers = { host: host };
+    options.headers = { host };
   }
   const req = https.get(options);
   const server = port === server1.address().port ? server1 :
-      port === server2.address().port ? server2 :
+    port === server2.address().port ? server2 :
       port === server3.address().port ? server3 :
-      null;
+        null;
   if (!server) throw new Error(`invalid port: ${port}`);
   server.expectCount++;
 
@@ -173,13 +161,9 @@ function allListening() {
 
   // server1: host 'agent1', signed by ca1
   makeReq('/inv1', port1, 'UNABLE_TO_VERIFY_LEAF_SIGNATURE');
-  makeReq('/inv1-ca1', port1,
-          'Hostname/IP doesn\'t match certificate\'s altnames: ' +
-              '"Host: localhost. is not cert\'s CN: agent1"',
+  makeReq('/inv1-ca1', port1, 'ERR_TLS_CERT_ALTNAME_INVALID',
           null, ca1);
-  makeReq('/inv1-ca1ca2', port1,
-          'Hostname/IP doesn\'t match certificate\'s altnames: ' +
-              '"Host: localhost. is not cert\'s CN: agent1"',
+  makeReq('/inv1-ca1ca2', port1, 'ERR_TLS_CERT_ALTNAME_INVALID',
           null, [ca1, ca2]);
   makeReq('/val1-ca1', port1, null, 'agent1', ca1);
   makeReq('/val1-ca1ca2', port1, null, 'agent1', [ca1, ca2]);
@@ -196,13 +180,8 @@ function allListening() {
 
   // server3: host 'agent3', signed by ca2
   makeReq('/inv3', port3, 'UNABLE_TO_VERIFY_LEAF_SIGNATURE');
-  makeReq('/inv3-ca2', port3,
-          'Hostname/IP doesn\'t match certificate\'s altnames: ' +
-              '"Host: localhost. is not cert\'s CN: agent3"',
-          null, ca2);
-  makeReq('/inv3-ca1ca2', port3,
-          'Hostname/IP doesn\'t match certificate\'s altnames: ' +
-              '"Host: localhost. is not cert\'s CN: agent3"',
+  makeReq('/inv3-ca2', port3, 'ERR_TLS_CERT_ALTNAME_INVALID', null, ca2);
+  makeReq('/inv3-ca1ca2', port3, 'ERR_TLS_CERT_ALTNAME_INVALID',
           null, [ca1, ca2]);
   makeReq('/val3-ca2', port3, null, 'agent3', ca2);
   makeReq('/val3-ca1ca2', port3, null, 'agent3', [ca1, ca2]);

@@ -1,8 +1,6 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
-
-const Buffer = require('buffer').Buffer;
 
 const b = Buffer.from('abcdef');
 const buf_a = Buffer.from('a');
@@ -200,37 +198,37 @@ assert.strictEqual(10, mixedByteStringUcs2.indexOf('\u03a3', 0, 'ucs2'));
 assert.strictEqual(-1, mixedByteStringUcs2.indexOf('\u0396', 0, 'ucs2'));
 
 assert.strictEqual(
-    6, mixedByteStringUcs2.indexOf(Buffer.from('bc', 'ucs2'), 0, 'ucs2'));
+  6, mixedByteStringUcs2.indexOf(Buffer.from('bc', 'ucs2'), 0, 'ucs2'));
 assert.strictEqual(
-    10, mixedByteStringUcs2.indexOf(Buffer.from('\u03a3', 'ucs2'), 0, 'ucs2'));
+  10, mixedByteStringUcs2.indexOf(Buffer.from('\u03a3', 'ucs2'), 0, 'ucs2'));
 assert.strictEqual(
-    -1, mixedByteStringUcs2.indexOf(Buffer.from('\u0396', 'ucs2'), 0, 'ucs2'));
+  -1, mixedByteStringUcs2.indexOf(Buffer.from('\u0396', 'ucs2'), 0, 'ucs2'));
 
 {
   const twoByteString = Buffer.from('\u039a\u0391\u03a3\u03a3\u0395', 'ucs2');
 
   // Test single char pattern
   assert.strictEqual(0, twoByteString.indexOf('\u039a', 0, 'ucs2'));
-  assert.strictEqual(2, twoByteString.indexOf('\u0391', 0, 'ucs2'),
-                     'Alpha');
-  assert.strictEqual(4, twoByteString.indexOf('\u03a3', 0, 'ucs2'),
-                     'First Sigma');
-  assert.strictEqual(6, twoByteString.indexOf('\u03a3', 6, 'ucs2'),
-                     'Second Sigma');
-  assert.strictEqual(8, twoByteString.indexOf('\u0395', 0, 'ucs2'),
-                     'Epsilon');
-  assert.strictEqual(-1, twoByteString.indexOf('\u0392', 0, 'ucs2'),
-                     'Not beta');
+  let index = twoByteString.indexOf('\u0391', 0, 'ucs2');
+  assert.strictEqual(2, index, `Alpha - at index ${index}`);
+  index = twoByteString.indexOf('\u03a3', 0, 'ucs2');
+  assert.strictEqual(4, index, `First Sigma - at index ${index}`);
+  index = twoByteString.indexOf('\u03a3', 6, 'ucs2');
+  assert.strictEqual(6, index, `Second Sigma - at index ${index}`);
+  index = twoByteString.indexOf('\u0395', 0, 'ucs2');
+  assert.strictEqual(8, index, `Epsilon - at index ${index}`);
+  index = twoByteString.indexOf('\u0392', 0, 'ucs2');
+  assert.strictEqual(-1, index, `Not beta - at index ${index}`);
 
   // Test multi-char pattern
-  assert.strictEqual(
-      0, twoByteString.indexOf('\u039a\u0391', 0, 'ucs2'), 'Lambda Alpha');
-  assert.strictEqual(
-      2, twoByteString.indexOf('\u0391\u03a3', 0, 'ucs2'), 'Alpha Sigma');
-  assert.strictEqual(
-      4, twoByteString.indexOf('\u03a3\u03a3', 0, 'ucs2'), 'Sigma Sigma');
-  assert.strictEqual(
-      6, twoByteString.indexOf('\u03a3\u0395', 0, 'ucs2'), 'Sigma Epsilon');
+  index = twoByteString.indexOf('\u039a\u0391', 0, 'ucs2');
+  assert.strictEqual(0, index, `Lambda Alpha - at index ${index}`);
+  index = twoByteString.indexOf('\u0391\u03a3', 0, 'ucs2');
+  assert.strictEqual(2, index, `Alpha Sigma - at index ${index}`);
+  index = twoByteString.indexOf('\u03a3\u03a3', 0, 'ucs2');
+  assert.strictEqual(4, index, `Sigma Sigma - at index ${index}`);
+  index = twoByteString.indexOf('\u03a3\u0395', 0, 'ucs2');
+  assert.strictEqual(6, index, `Sigma Epsilon - at index ${index}`);
 }
 
 const mixedByteStringUtf8 = Buffer.from('\u039a\u0391abc\u03a3\u03a3\u0395');
@@ -257,20 +255,22 @@ for (let i = 0; i < longBufferString.length - pattern.length; i += 7) {
   assert.strictEqual((i + 15) & ~0xf, index,
                      `Long ABACABA...-string at index ${i}`);
 }
-assert.strictEqual(510, longBufferString.indexOf('AJABACA'),
-                   'Long AJABACA, First J');
-assert.strictEqual(
-    1534, longBufferString.indexOf('AJABACA', 511), 'Long AJABACA, Second J');
+
+let index = longBufferString.indexOf('AJABACA');
+assert.strictEqual(510, index, `Long AJABACA, First J - at index ${index}`);
+index = longBufferString.indexOf('AJABACA', 511);
+assert.strictEqual(1534, index, `Long AJABACA, Second J - at index ${index}`);
 
 pattern = 'JABACABADABACABA';
+index = longBufferString.indexOf(pattern);
+assert.strictEqual(511, index, `Long JABACABA..., First J - at index ${index}`);
+index = longBufferString.indexOf(pattern, 512);
 assert.strictEqual(
-    511, longBufferString.indexOf(pattern), 'Long JABACABA..., First J');
-assert.strictEqual(
-    1535, longBufferString.indexOf(pattern, 512), 'Long JABACABA..., Second J');
+  1535, index, `Long JABACABA..., Second J - at index ${index}`);
 
 // Search for a non-ASCII string in a pure ASCII string.
 const asciiString = Buffer.from(
-    'arglebargleglopglyfarglebargleglopglyfarglebargleglopglyf');
+  'arglebargleglopglyfarglebargleglopglyfarglebargleglopglyf');
 assert.strictEqual(-1, asciiString.indexOf('\x2061'));
 assert.strictEqual(3, asciiString.indexOf('leb', 0));
 
@@ -337,29 +337,30 @@ assert.strictEqual(Buffer.from('aaaaa').indexOf('b', 'ucs2'), -1);
       const patternBufferUcs2 =
           allCharsBufferUcs2.slice(index, index + length);
       assert.strictEqual(
-          index, allCharsBufferUcs2.indexOf(patternBufferUcs2, 0, 'ucs2'));
+        index, allCharsBufferUcs2.indexOf(patternBufferUcs2, 0, 'ucs2'));
 
       const patternStringUcs2 = patternBufferUcs2.toString('ucs2');
       assert.strictEqual(
-          index, allCharsBufferUcs2.indexOf(patternStringUcs2, 0, 'ucs2'));
+        index, allCharsBufferUcs2.indexOf(patternStringUcs2, 0, 'ucs2'));
     }
   }
 }
 
-const argumentExpected =
-    /^TypeError: "val" argument must be string, number, Buffer or Uint8Array$/;
-
-assert.throws(() => {
-  b.indexOf(() => { });
-}, argumentExpected);
-
-assert.throws(() => {
-  b.indexOf({});
-}, argumentExpected);
-
-assert.throws(() => {
-  b.indexOf([]);
-}, argumentExpected);
+[
+  () => {},
+  {},
+  []
+].forEach((val) => {
+  common.expectsError(
+    () => b.indexOf(val),
+    {
+      code: 'ERR_INVALID_ARG_TYPE',
+      type: TypeError,
+      message: 'The "value" argument must be one of type string, ' +
+               `Buffer, or Uint8Array. Received type ${typeof val}`
+    }
+  );
+});
 
 // Test weird offset arguments.
 // The following offsets coerce to NaN or 0, searching the whole Buffer
@@ -503,7 +504,7 @@ assert.strictEqual(buf_bc.lastIndexOf('你好', 5, 'binary'), -1);
 assert.strictEqual(buf_bc.lastIndexOf(Buffer.from('你好'), 7), -1);
 
 // Test lastIndexOf on a longer buffer:
-const bufferString = new Buffer('a man a plan a canal panama');
+const bufferString = Buffer.from('a man a plan a canal panama');
 assert.strictEqual(15, bufferString.lastIndexOf('canal'));
 assert.strictEqual(21, bufferString.lastIndexOf('panama'));
 assert.strictEqual(0, bufferString.lastIndexOf('a man a plan a canal panama'));
@@ -553,7 +554,7 @@ assert.strictEqual(511, longBufferString.lastIndexOf(pattern, 1534));
 // "yolo swag swag yolo swag yolo yolo swag" ..., goes on for about 5MB.
 // This is hard to search because it all looks similar, but never repeats.
 
-// countBits returns the number of bits in the binary reprsentation of n.
+// countBits returns the number of bits in the binary representation of n.
 function countBits(n) {
   let count;
   for (count = 0; n > 0; count++) {
@@ -565,7 +566,7 @@ const parts = [];
 for (let i = 0; i < 1000000; i++) {
   parts.push((countBits(i) % 2 === 0) ? 'yolo' : 'swag');
 }
-const reallyLong = new Buffer(parts.join(' '));
+const reallyLong = Buffer.from(parts.join(' '));
 assert.strictEqual('yolo swag swag yolo', reallyLong.slice(0, 19).toString());
 
 // Expensive reverse searches. Stress test lastIndexOf:

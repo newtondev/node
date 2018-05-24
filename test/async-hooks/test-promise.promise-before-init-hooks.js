@@ -10,13 +10,13 @@ const p = new Promise(common.mustCall(function executor(resolve, reject) {
 }));
 
 // init hooks after promise was created
-const hooks = initHooks({allowNoInit: true});
+const hooks = initHooks({ allowNoInit: true });
 hooks.enable();
 
 p.then(function afterresolution(val) {
   assert.strictEqual(val, 5);
   const as = hooks.activitiesOfTypes('PROMISE');
-  assert.strictEqual(as.length, 1, 'one activity');
+  assert.strictEqual(as.length, 1);
   checkInvocations(as[0], { init: 1, before: 1 },
                    'after resolution child promise');
   return val;
@@ -37,6 +37,6 @@ process.on('exit', function onexit() {
   // immediately before the child promise, thus there should only be one
   // difference in id.
   assert.strictEqual(a0.triggerAsyncId, a0.uid - 1);
-  // We expect a destroy hook as well but we cannot guarentee predictable gc.
+  // We expect a destroy hook as well but we cannot guarantee predictable gc.
   checkInvocations(a0, { init: 1, before: 1, after: 1 }, 'when process exits');
 });

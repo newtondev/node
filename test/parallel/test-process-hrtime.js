@@ -23,34 +23,44 @@
 const common = require('../common');
 const assert = require('assert');
 
-// the default behavior, return an Array "tuple" of numbers
+// The default behavior, return an Array "tuple" of numbers
 const tuple = process.hrtime();
 
-// validate the default behavior
+// Validate the default behavior
 validateTuple(tuple);
 
-// validate that passing an existing tuple returns another valid tuple
+// Validate that passing an existing tuple returns another valid tuple
 validateTuple(process.hrtime(tuple));
 
-const invalidHrtimeArgument = common.expectsError({
+// Test that only an Array may be passed to process.hrtime()
+common.expectsError(() => {
+  process.hrtime(1);
+}, {
   code: 'ERR_INVALID_ARG_TYPE',
   type: TypeError,
-  message: 'The "process.hrtime()" argument must be of type Array'
+  message: 'The "time" argument must be of type Array. Received type number'
 });
-
-// test that only an Array may be passed to process.hrtime()
-assert.throws(() => {
-  process.hrtime(1);
-}, invalidHrtimeArgument);
-assert.throws(() => {
+common.expectsError(() => {
   process.hrtime([]);
-}, invalidHrtimeArgument);
-assert.throws(() => {
+}, {
+  code: 'ERR_OUT_OF_RANGE',
+  type: RangeError,
+  message: 'The value of "time" is out of range. It must be 2. Received 0'
+});
+common.expectsError(() => {
   process.hrtime([1]);
-}, invalidHrtimeArgument);
-assert.throws(() => {
+}, {
+  code: 'ERR_OUT_OF_RANGE',
+  type: RangeError,
+  message: 'The value of "time" is out of range. It must be 2. Received 1'
+});
+common.expectsError(() => {
   process.hrtime([1, 2, 3]);
-}, invalidHrtimeArgument);
+}, {
+  code: 'ERR_OUT_OF_RANGE',
+  type: RangeError,
+  message: 'The value of "time" is out of range. It must be 2. Received 3'
+});
 
 function validateTuple(tuple) {
   assert(Array.isArray(tuple));
@@ -60,4 +70,4 @@ function validateTuple(tuple) {
 }
 
 const diff = process.hrtime([0, 1e9 - 1]);
-assert(diff[1] >= 0);  // https://github.com/nodejs/node/issues/4751
+assert(diff[1] >= 0); // https://github.com/nodejs/node/issues/4751

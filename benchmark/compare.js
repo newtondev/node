@@ -1,6 +1,7 @@
 'use strict';
 
-const fork = require('child_process').fork;
+const { fork } = require('child_process');
+const { inspect } = require('util');
 const path = require('path');
 const CLI = require('./_cli.js');
 const BenchmarkProgress = require('./_benchmark_progress.js');
@@ -20,10 +21,7 @@ const cli = CLI(`usage: ./node compare.js [options] [--] <category> ...
   --filter   pattern            string to filter benchmark scripts
   --set      variable=value     set benchmark variable (can be repeated)
   --no-progress                 don't show benchmark progress indicator
-`, {
-  arrayArgs: ['set'],
-  boolArgs: ['no-progress']
-});
+`, { arrayArgs: ['set'], boolArgs: ['no-progress'] });
 
 if (!cli.optional.new || !cli.optional.old) {
   cli.abort(cli.usage);
@@ -79,14 +77,14 @@ if (showProgress) {
       // Construct configuration string, " A=a, B=b, ..."
       let conf = '';
       for (const key of Object.keys(data.conf)) {
-        conf += ` ${key}=${JSON.stringify(data.conf[key])}`;
+        conf += ` ${key}=${inspect(data.conf[key])}`;
       }
       conf = conf.slice(1);
       // Escape quotes (") for correct csv formatting
       conf = conf.replace(/"/g, '""');
 
-      console.log(`"${job.binary}", "${job.filename}", "${conf}", ${
-                   data.rate}, ${data.time}`);
+      console.log(`"${job.binary}", "${job.filename}", "${conf}", ` +
+                  `${data.rate}, ${data.time}`);
       if (showProgress) {
         // One item in the subqueue has been completed.
         progress.completeConfig(data);

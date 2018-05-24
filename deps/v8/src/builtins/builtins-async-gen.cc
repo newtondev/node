@@ -3,12 +3,67 @@
 // found in the LICENSE file.
 
 #include "src/builtins/builtins-async-gen.h"
+
 #include "src/builtins/builtins-utils-gen.h"
+#include "src/factory-inl.h"
+#include "src/objects/shared-function-info.h"
 
 namespace v8 {
 namespace internal {
 
 using compiler::Node;
+
+void AsyncBuiltinsAssembler::Await(Node* context, Node* generator, Node* value,
+                                   Node* outer_promise,
+                                   Builtins::Name fulfill_builtin,
+                                   Builtins::Name reject_builtin,
+                                   Node* is_predicted_as_caught) {
+  CSA_SLOW_ASSERT(this, Word32Or(IsJSAsyncGeneratorObject(generator),
+                                 IsJSGeneratorObject(generator)));
+  CSA_SLOW_ASSERT(this, IsJSPromise(outer_promise));
+  CSA_SLOW_ASSERT(this, IsBoolean(is_predicted_as_caught));
+
+  Node* const native_context = LoadNativeContext(context);
+
+  // TODO(bmeurer): This could be optimized and folded into a single allocation.
+  Node* const promise = AllocateAndInitJSPromise(native_context);
+  Node* const promise_reactions =
+      LoadObjectField(promise, JSPromise::kReactionsOrResultOffset);
+  Node* const fulfill_handler =
+      HeapConstant(Builtins::CallableFor(isolate(), fulfill_builtin).code());
+  Node* const reject_handler =
+      HeapConstant(Builtins::CallableFor(isolate(), reject_builtin).code());
+  Node* const reaction = AllocatePromiseReaction(
+      promise_reactions, generator, fulfill_handler, reject_handler);
+  StoreObjectField(promise, JSPromise::kReactionsOrResultOffset, reaction);
+  PromiseSetHasHandler(promise);
+
+  // Perform ! Call(promiseCapability.[[Resolve]], undefined, « value »).
+  CallBuiltin(Builtins::kResolvePromise, native_context, promise, value);
+
+  // When debugging, we need to link from the {generator} to the
+  // {outer_promise} of the async function/generator.
+  Label done(this);
+  GotoIfNot(IsDebugActive(), &done);
+  CallRuntime(Runtime::kSetProperty, native_context, generator,
+              LoadRoot(Heap::kgenerator_outer_promise_symbolRootIndex),
+              outer_promise, SmiConstant(LanguageMode::kStrict));
+  GotoIf(IsFalse(is_predicted_as_caught), &done);
+  GotoIf(TaggedIsSmi(value), &done);
+  GotoIfNot(IsJSPromise(value), &done);
+  PromiseSetHandledHint(value);
+  Goto(&done);
+  BIND(&done);
+}
+
+void AsyncBuiltinsAssembler::Await(Node* context, Node* generator, Node* value,
+                                   Node* outer_promise,
+                                   Builtins::Name fulfill_builtin,
+                                   Builtins::Name reject_builtin,
+                                   bool is_predicted_as_caught) {
+  return Await(context, generator, value, outer_promise, fulfill_builtin,
+               reject_builtin, BooleanConstant(is_predicted_as_caught));
+}
 
 namespace {
 // Describe fields of Context associated with the AsyncIterator unwrap closure.
@@ -18,81 +73,6 @@ class ValueUnwrapContext {
 };
 
 }  // namespace
-
-Node* AsyncBuiltinsAssembler::Await(
-    Node* context, Node* generator, Node* value, Node* outer_promise,
-    const NodeGenerator1& create_closure_context, int on_resolve_context_index,
-    int on_reject_context_index, bool is_predicted_as_caught) {
-  // Let promiseCapability be ! NewPromiseCapability(%Promise%).
-  Node* const wrapped_value = AllocateAndInitJSPromise(context);
-
-  // Perform ! Call(promiseCapability.[[Resolve]], undefined, « promise »).
-  CallBuiltin(Builtins::kResolveNativePromise, context, wrapped_value, value);
-
-  Node* const native_context = LoadNativeContext(context);
-
-  Node* const closure_context = create_closure_context(native_context);
-  Node* const map = LoadContextElement(
-      native_context, Context::STRICT_FUNCTION_WITHOUT_PROTOTYPE_MAP_INDEX);
-
-  // Load and allocate on_resolve closure
-  Node* const on_resolve_shared_fun =
-      LoadContextElement(native_context, on_resolve_context_index);
-  CSA_SLOW_ASSERT(
-      this, HasInstanceType(on_resolve_shared_fun, SHARED_FUNCTION_INFO_TYPE));
-  Node* const on_resolve = AllocateFunctionWithMapAndContext(
-      map, on_resolve_shared_fun, closure_context);
-
-  // Load and allocate on_reject closure
-  Node* const on_reject_shared_fun =
-      LoadContextElement(native_context, on_reject_context_index);
-  CSA_SLOW_ASSERT(
-      this, HasInstanceType(on_reject_shared_fun, SHARED_FUNCTION_INFO_TYPE));
-  Node* const on_reject = AllocateFunctionWithMapAndContext(
-      map, on_reject_shared_fun, closure_context);
-
-  Node* const throwaway_promise =
-      AllocateAndInitJSPromise(context, wrapped_value);
-
-  // The Promise will be thrown away and not handled, but it shouldn't trigger
-  // unhandled reject events as its work is done
-  PromiseSetHasHandler(throwaway_promise);
-
-  Label do_perform_promise_then(this);
-  GotoIfNot(IsDebugActive(), &do_perform_promise_then);
-  {
-    Label common(this);
-    GotoIf(TaggedIsSmi(value), &common);
-    GotoIfNot(HasInstanceType(value, JS_PROMISE_TYPE), &common);
-    {
-      // Mark the reject handler callback to be a forwarding edge, rather
-      // than a meaningful catch handler
-      Node* const key =
-          HeapConstant(factory()->promise_forwarding_handler_symbol());
-      CallRuntime(Runtime::kSetProperty, context, on_reject, key,
-                  TrueConstant(), SmiConstant(STRICT));
-
-      if (is_predicted_as_caught) PromiseSetHandledHint(value);
-    }
-
-    Goto(&common);
-    BIND(&common);
-    // Mark the dependency to outer Promise in case the throwaway Promise is
-    // found on the Promise stack
-    CSA_SLOW_ASSERT(this, HasInstanceType(outer_promise, JS_PROMISE_TYPE));
-
-    Node* const key = HeapConstant(factory()->promise_handled_by_symbol());
-    CallRuntime(Runtime::kSetProperty, context, throwaway_promise, key,
-                outer_promise, SmiConstant(STRICT));
-  }
-
-  Goto(&do_perform_promise_then);
-  BIND(&do_perform_promise_then);
-  CallBuiltin(Builtins::kPerformNativePromiseThen, context, wrapped_value,
-              on_resolve, on_reject, throwaway_promise);
-
-  return wrapped_value;
-}
 
 Node* AsyncBuiltinsAssembler::CreateUnwrapClosure(Node* native_context,
                                                   Node* done) {
@@ -127,8 +107,8 @@ TF_BUILTIN(AsyncIteratorValueUnwrap, AsyncBuiltinsAssembler) {
   Node* const done = LoadContextElement(context, ValueUnwrapContext::kDoneSlot);
   CSA_ASSERT(this, IsBoolean(done));
 
-  Node* const unwrapped_value = CallStub(
-      CodeFactory::CreateIterResultObject(isolate()), context, value, done);
+  Node* const unwrapped_value =
+      CallBuiltin(Builtins::kCreateIterResultObject, context, value, done);
 
   Return(unwrapped_value);
 }
